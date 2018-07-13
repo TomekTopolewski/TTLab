@@ -1,4 +1,4 @@
-﻿$TTErrorLogPreference = 'U:\Temp\Error.txt'
+﻿$TTErrorLogPreference = 'C:\Error.txt'
 Function Get-TTSystemInfo {
     <#
     .SYNOPSIS
@@ -340,9 +340,3 @@ Export-ModuleMember -Function Get-TTSystemInfo
 Export-ModuleMember -Function Get-TTVolumeInfo
 Export-ModuleMember -Function Get-TTServiceInfo
 Export-ModuleMember -Function Get-TTSystemInfo2
-
-#Update-FormatData -PrependPath U:\Temp\Tools.format.ps1xml
-#Get-TTSystemInfo -ComputerName Error1, localhost -ErrorLog U:\Temp\Error.txt -LogErrors -Verbose
-#Get-TTVolumeInfo -ComputerName localhost, Error2 -ErrorLog U:\Temp\Error.txt -LogErrors -Verbose
-#Get-TTServiceInfo -ComputerName Error3, localhost -ErrorLog U:\Temp\Error.txt -LogErrors -Verbose
-#Get-TTSystemInfo2 -ComputerName Error4, localhost -ErrorLog U:\Temp\Error.txt -LogErrors -Verbose
