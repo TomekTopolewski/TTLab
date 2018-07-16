@@ -417,6 +417,7 @@ Function Set-TTInventoryInDB {
     }
 }
 
+
 Export-ModuleMember -Variable TTErrorLogPreference
 Export-ModuleMember -Function Get-TTSystemInfo
 Export-ModuleMember -Function Get-TTVolumeInfo
