@@ -335,6 +335,38 @@ Function Get-TTSystemInfo2 {
     END {}
 }
 
+Function Get-TTDatabaseData {
+    [CmdletBinding()]
+    Param (
+        [string]$ConnectionString,
+
+        [string]$Query,
+
+        [switch]$IsSQLServer
+    )
+
+    if ($IsSQLServer) {
+        $Connection = New-Object -TypeName System.Data.SqlClient.SqlConnection
+    } else {
+        $Connection = New-Object -TypeName System.Data.OleDb.OleDbConnection
+    }
+
+    $Connection.ConnectionString = $ConnectionString
+    $Command = $Connection.CreateCommand()
+    $Command.CommandText = $Query
+
+    if ($IsSQLServer) {
+        $Adapter = New-Object -TypeName System.Data.SqlClient.SqlDataAdapter $Command
+    } else {
+        $Adapter = New-Object -TypeName System.Data.OleDb.OleDbDataAdapter $Command
+    }
+
+    $DataSet = New-Object -TypeName System.Data.DataSet
+    $Adapter.Fill($DataSet)
+    $DataSet.Tables[0]
+    $Connection.Close()
+}
+
 Export-ModuleMember -Variable TTErrorLogPreference
 Export-ModuleMember -Function Get-TTSystemInfo
 Export-ModuleMember -Function Get-TTVolumeInfo
