@@ -1,4 +1,6 @@
 ﻿$TTErrorLogPreference = 'C:\Error.txt'
+$TTConnectionString = "server=localhost\SQLEXPRESS;database=inventory;trusted_connection=$True"
+
 Function Get-TTSystemInfo {
     <#
     .SYNOPSIS
@@ -334,7 +336,6 @@ Function Get-TTSystemInfo2 {
     }
     END {}
 }
-
 Function Get-TTDatabaseData {
     [CmdletBinding()]
     Param (
@@ -366,7 +367,6 @@ Function Get-TTDatabaseData {
     $DataSet.Tables[0]
     $Connection.Close()
 }
-
 Function Invoke-TTDatabaseQuery {
     [CmdletBinding(SupportsShouldProcess = $True, ConfirmImpact = 'Low')]
     Param (
@@ -393,9 +393,33 @@ Function Invoke-TTDatabaseQuery {
         $Connection.Close()
     }
 }
+Function Get-TTNamesFromDB {
+    Get-TTDatabaseData -ConnectionString $TTConnectionString -Query "SELECT computername FROM computers" -IsSQLServer
+}
+Function Set-TTInventoryInDB {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory = $True, ValueFromPipeline = $True)]
+        [Object]$InputObject
+    )
+
+    foreach ($Object in $InputObject) {
+        $Query = "UPDATE 
+                    computers 
+                SET
+                    OSversion = '$($Object.OSversion)',
+                    SPversion = '$($Object.SPversion)',
+                    Manufacturer = '$($Object.Manufacturer)',
+                    Model = '$($Object.Model)'
+                WHERE
+                    computername = '$($Object.ComputerName)'"
+        Invoke-TTDatabaseQuery -ConnectionString $TTConnectionString -Query $Query -IsSQLServer
+    }
+}
 
 Export-ModuleMember -Variable TTErrorLogPreference
 Export-ModuleMember -Function Get-TTSystemInfo
 Export-ModuleMember -Function Get-TTVolumeInfo
 Export-ModuleMember -Function Get-TTServiceInfo
 Export-ModuleMember -Function Get-TTSystemInfo2
+Export-ModuleMember -Function Set-TTInventoryInDB
