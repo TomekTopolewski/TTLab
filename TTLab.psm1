@@ -367,6 +367,33 @@ Function Get-TTDatabaseData {
     $Connection.Close()
 }
 
+Function Invoke-TTDatabaseQuery {
+    [CmdletBinding(SupportsShouldProcess = $True, ConfirmImpact = 'Low')]
+    Param (
+        [string]$ConnectionString,
+
+        [string]$Query,
+
+        [switch]$IsSQLServer
+    )
+
+    if ($IsSQLServer) {
+        $Connection = New-Object -TypeName System.Data.SqlClient.SqlConnection
+    } else {
+        $Connection = New-Object -TypeName System.Data.OleDb.OleDbConnection
+    }
+
+    $Connection.ConnectionString = $ConnectionString
+    $Command = $Connection.CreateCommand()
+    $Command.CommandText = $Query
+
+    if ($PSCmdlet.ShouldProcess($Query)) {
+        $Connection.Open()
+        $Command.ExecuteNonQuery()
+        $Connection.Close()
+    }
+}
+
 Export-ModuleMember -Variable TTErrorLogPreference
 Export-ModuleMember -Function Get-TTSystemInfo
 Export-ModuleMember -Function Get-TTVolumeInfo
