@@ -22,6 +22,7 @@ Function Get-TTSystemInfo {
     Param (
         [Parameter(Mandatory=$True,
                     ValueFromPipeline=$True,
+                    ValueFromPipelineByPropertyName = $True,
                     HelpMessage="Computer name or IP address")]
         [Alias('Hostname')]
         [ValidateCount(1,10)]
@@ -389,7 +390,7 @@ Function Invoke-TTDatabaseQuery {
 
     if ($PSCmdlet.ShouldProcess($Query)) {
         $Connection.Open()
-        $Command.ExecuteNonQuery()
+        $Command.ExecuteNonQuery() | Out-Null
         $Connection.Close()
     }
 }
@@ -424,3 +425,6 @@ Export-ModuleMember -Function Get-TTVolumeInfo
 Export-ModuleMember -Function Get-TTServiceInfo
 Export-ModuleMember -Function Get-TTSystemInfo2
 Export-ModuleMember -Function Set-TTInventoryInDB
+Export-ModuleMember -Function Get-TTDatabaseData
+Export-ModuleMember -Function Get-TTNamesFromDB
+Export-ModuleMember -Function Invoke-TTDatabaseQuery
