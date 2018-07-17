@@ -465,7 +465,7 @@ Function Set-TTDBInventory {
 Function Get-TTRemoteSMBShare {
     <#
     .SYNOPSIS
-    Function returns a list of SMB shares
+    Function returns a list of SMB shares on local or remote computers
     .PARAMETER ComputerName
     Up to 5 computer names are allowed.
     .EXAMPLE
@@ -515,6 +515,89 @@ Function Get-TTRemoteSMBShare {
     END {}
 }
 
+Function Get-TTProgram {
+    <#
+    .SYNOPSIS
+    Function returns a list of installed software on local or remote computers.
+    .DESCRIPTION
+    It uses Win32_OperatingSystem to check whether it is 32 or 64-bits architecture.
+    After that function looks into registry to find the list of installed software.
+    .PARAMETER ComputerName
+    Up to 10 computer names are allowed.
+    .PARAMETER ErrorLog
+    Path to the place where the error log will be stored. Default is C:\Error.txt.
+    .EXAMPLE
+    Get-TTProgram -ComputerName localhost
+    #>
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory=$True,
+                    ValueFromPipeline=$True,
+                    ValueFromPipelineByPropertyName = $True,
+                    HelpMessage="Computer name")]
+        [Alias('Hostname')]
+        [ValidateCount(1,10)]
+        [ValidateNotNullOrEmpty()]
+        [string[]]$ComputerName,
+
+        [string]$ErrorLog = $TTErrorLogPreference
+    )
+    BEGIN {}
+    PROCESS {
+        foreach ($Computer in $ComputerName) {
+            Try {
+                $Status = $True
+                Write-Verbose "Querying $Computer for OS architecture"
+                $OSArchitecture = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar | Select-Object -ExpandProperty OSArchitecture
+            } Catch {
+                $Status = $False
+                Write-Warning "Querying $Computer for OS architecture FAILED"
+                Write-Warning $ErrorVar.message
+                $Computer | Out-File -FilePath $ErrorLog -Append
+                $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
+                Write-Warning "Logged to $ErrorLog"
+            }
+            if ($Status) {
+                if ($OSArchitecture.Substring(0,2) -eq 32) {
+                    Try {
+                        Write-Verbose "Querying $Computer x86"
+                        $Programs = Invoke-Command -ComputerName $Computer -ScriptBlock {Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* -ErrorAction Stop -ErrorVariable ErrorVar | Where-Object {$PSItem.DisplayName -gt $null}}
+                    } Catch {
+                        Write-Warning "$Computer FAILED"
+                        Write-Warning $ErrorVar.message
+                        $Computer | Out-File -FilePath $ErrorLog -Append
+                        $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
+                        Write-Warning "Logged to $ErrorLog"
+                    }
+                } else {
+                    Try {
+                        Write-Verbose "Querying $Computer x64"
+                        $Programs = Invoke-Command -ComputerName $Computer -ScriptBlock {Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* -ErrorAction Stop -ErrorVariable ErrorVar | Where-Object {$PSItem.DisplayName -gt $null}}
+                    } Catch {
+                        Write-Warning "$Computer FAILED"
+                        Write-Warning $ErrorVar.message
+                        $Computer | Out-File -FilePath $ErrorLog -Append
+                        $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
+                        Write-Warning "Logged to $ErrorLog"
+                    }
+                }
+                foreach ($Program in $Programs) {
+                    $Hash = @{
+                        'ComputerName' = $Computer;
+                        'Name' = $Program.DisplayName;
+                        'Version' = $Program.DisplayVersion;
+                        'Publisher' = $Program.Publisher
+                    }
+                    $Object = New-Object -TypeName psobject -Property $Hash
+                    $Object.PSObject.TypeNames.Insert(0,'TTLab.Program')
+                    Write-Output $Object
+                }
+            }
+        }
+    }
+    END {}
+}
+
 #Variables
 Export-ModuleMember -Variable TTErrorLogPreference
 
@@ -524,6 +607,7 @@ Export-ModuleMember -Function Get-TTVolumeInfo
 Export-ModuleMember -Function Get-TTServiceInfo
 Export-ModuleMember -Function Get-TTSystemInfo2
 Export-ModuleMember -Function Get-TTRemoteSMBShare
+Export-ModuleMember -Function Get-TTProgram
 
 #Database Functions
 Export-ModuleMember -Function Get-TTDBData
