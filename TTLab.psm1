@@ -8,7 +8,7 @@ Function Get-TTSystemInfo {
     .DESCRIPTION
         Get-SystenInfo uses WMI classes like Win32_OperatingSYstem or Win32_ComputerSystem to gather information from local or remote machine.
     .PARAMETER ComputerName
-        You are allowed to put here up to 10 computer names.
+        Up to 10 computer names are allowed.
     .PARAMETER ErrorLog
         Path to the place where the error log will be stored.
     .PARAMETER LogErrors
@@ -99,7 +99,7 @@ Function Get-TTVolumeInfo {
     .DESCRIPTION
         It uses Win32_Volume class under the hood to gather information from local or remote machine.
     .PARAMETER ComputerName
-        You are allowed to put here up to 10 computer names.
+        Up to 10 computer names are allowed.
     .PARAMETER ErrorLog
         Path to the place where the error log will be stored.
     .PARAMETER LogErrors
@@ -182,7 +182,7 @@ Function Get-TTServiceInfo {
     .DESCRIPTION
         Get-ServiceInfo uses WMI classes like Win32_Service and Win32_Process to gather information from local or remote machine.
     .PARAMETER ComputerName
-        You are allowed to put here up to 10 computer names.
+        Up to 10 computer names are allowed.
     .PARAMETER ErrorLog
         Path to the place where the error log will be stored.
     .PARAMETER LogErrors
@@ -267,7 +267,7 @@ Function Get-TTSystemInfo2 {
     .DESCRIPTION
         Get-SystenInfo uses WMI classes like Win32_OperatingSYstem or Win32_ComputerSystem to gather information from local or remote machine.
     .PARAMETER ComputerName
-        You are allowed to put here up to 10 computer names.
+        Up to 5 computer names are allowed.
     .PARAMETER ErrorLog
         Path to the place where the error log will be stored.
     .PARAMETER LogErrors
@@ -467,7 +467,7 @@ Function Get-TTRemoteSMBShare {
     .SYNOPSIS
     Function returns a list of SMB shares
     .PARAMETER ComputerName
-    You are allowed to put here up to 5 computer names.
+    Up to 5 computer names are allowed.
     .EXAMPLE
     Get-TTRemoteSMBShare -ComputerName localhost, localhost
     .EXAMPLE
