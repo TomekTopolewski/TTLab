@@ -97,7 +97,7 @@ Function Get-TTVolumeInfo {
     .SYNOPSIS
         Retrieves information about physical drives from local or remote machine.
     .DESCRIPTION
-        Under the hood it uses Win32_Volume class to gather information from local or remote machine.
+        It uses Win32_Volume class under the hood to gather information from local or remote machine.
     .PARAMETER ComputerName
         You are allowed to put here up to 10 computer names.
     .PARAMETER ErrorLog
@@ -113,6 +113,7 @@ Function Get-TTVolumeInfo {
     Param (
         [Parameter(Mandatory=$True,
                     ValueFromPipeline=$True,
+                    ValueFromPipelineByPropertyName = $True,
                     HelpMessage="Computer name or IP address")]
         [Alias('Hostname')]
         [ValidateCount(1,10)]
@@ -195,6 +196,7 @@ Function Get-TTServiceInfo {
     Param (
         [Parameter(Mandatory=$True,
                     ValueFromPipeline=$True,
+                    ValueFromPipelineByPropertyName=$True,
                     HelpMessage="Computer name or IP address")]
         [Alias('Hostname')]
         [ValidateCount(1,10)]
@@ -279,6 +281,7 @@ Function Get-TTSystemInfo2 {
     Param (
         [Parameter(Mandatory=$True,
                     ValueFromPipeline=$True,
+                    ValueFromPipelineByPropertyName=$True,
                     HelpMessage="Computer name or IP address")]
         [Alias('Hostname')]
         [ValidateCount(1,10)]
@@ -337,7 +340,25 @@ Function Get-TTSystemInfo2 {
     }
     END {}
 }
-Function Get-TTDatabaseData {
+Function Get-TTDBData {
+    <#
+    .SYNOPSIS
+    Function used to query information from a database. It is designed to work with MS-SQL databases and others via OleDB objects.
+    .DESCRIPTION
+    It uses .NET Framework object System.Data.SQLClient/OleDB.
+    .PARAMETER ConnectionString
+    Connection string should contain information about which database to connect and how to do it.
+    .PARAMETER Query
+    The actual SQL language query that will run.
+    .PARAMETER IsSQLServer
+    It is a switch parameter to choose between MS and other databases.
+    .EXAMPLE
+    $ConnectionString = "server=localhost\SQLEXPRESS;database=inventory;trusted_connection=$True"
+
+    $Query = "SELECT Something FROM Somewhere WHERE Something = Something"
+
+    Get-TTDBData -ConnectionString $ConnectionString -Query $Query -IsSQLServer
+    #>
     [CmdletBinding()]
     Param (
         [string]$ConnectionString,
@@ -368,7 +389,23 @@ Function Get-TTDatabaseData {
     $DataSet.Tables[0]
     $Connection.Close()
 }
-Function Invoke-TTDatabaseQuery {
+Function Invoke-TTDBData {
+    <#
+    .SYNOPSIS
+    Function used to work with data in database
+    .PARAMETER ConnectionString
+    Connection string should contain information about which database to connect and how to do it.
+    .PARAMETER Query
+    The actual SQL language query that will run.
+    .PARAMETER IsSQLServer
+    It is a switch parameter to choose between MS and other databases.
+    .EXAMPLE
+    $ConnectionString = "server=localhost\SQLEXPRESS;database=inventory;trusted_connection=$True"
+
+    $Query = "UPDATE Database SET Columns = Something, Columns = Something"
+
+    Get-TTDBQuery -ConnectionString $ConnectionString -Query $Query
+    #>
     [CmdletBinding(SupportsShouldProcess = $True, ConfirmImpact = 'Low')]
     Param (
         [string]$ConnectionString,
@@ -394,10 +431,18 @@ Function Invoke-TTDatabaseQuery {
         $Connection.Close()
     }
 }
-Function Get-TTNamesFromDB {
-    Get-TTDatabaseData -ConnectionString $TTConnectionString -Query "SELECT computername FROM computers" -IsSQLServer
+Function Get-TTDBNames {
+    <#
+    .SYNOPSIS
+    A sample function used to gather information from specific database.
+    #>
+    Get-TTDBData -ConnectionString $TTConnectionString -Query "SELECT computername FROM computers" -IsSQLServer
 }
-Function Set-TTInventoryInDB {
+Function Set-TTDBInventory {
+    <#
+    .SYNOPSIS
+    A sample function used to update computer list in database.
+    #>
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory = $True, ValueFromPipeline = $True)]
@@ -405,8 +450,8 @@ Function Set-TTInventoryInDB {
     )
 
     foreach ($Object in $InputObject) {
-        $Query = "UPDATE 
-                    computers 
+        $Query = "UPDATE
+                    computers
                 SET
                     OSversion = '$($Object.OSversion)',
                     SPversion = '$($Object.SPversion)',
@@ -414,17 +459,72 @@ Function Set-TTInventoryInDB {
                     Model = '$($Object.Model)'
                 WHERE
                     computername = '$($Object.ComputerName)'"
-        Invoke-TTDatabaseQuery -ConnectionString $TTConnectionString -Query $Query -IsSQLServer
+        Invoke-TTDBData -ConnectionString $TTConnectionString -Query $Query -IsSQLServer
     }
 }
+Function Get-TTRemoteSMBShare {
+    <#
+    .SYNOPSIS
+    Function returns a list of SMB shares
+    .PARAMETER ComputerName
+    You are allowed to put here up to 5 computer names.
+    .EXAMPLE
+    Get-TTRemoteSMBShare -ComputerName localhost, localhost
+    .EXAMPLE
+    Get-Content C:\PowerShellOutput\localhost.txt | Get-TTRemoteSMBShare
+    #>
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory=$True,
+        ValueFromPipeline=$True,
+        ValueFromPipelineByPropertyName=$True,
+        HelpMessage="Computer name or IP address")]
+        [Alias('Hostname')]
+        [ValidateCount(1,5)]
+        [ValidateNotNullOrEmpty()]
+        [string[]]$ComputerName,
 
+        [string]$ErrorLog = $TTErrorLogPreference
+    )
+    BEGIN {}
+    PROCESS {
+        foreach ($Computer in $ComputerName) {
+            Try {
+                Write-Verbose "Querying $Computer"
+                $Shares = Invoke-Command -ComputerName $Computer -ScriptBlock {Get-SmbShare} -ErrorAction Stop -ErrorVariable ErrorVar
+            } Catch {
+                Write-Warning "$Computer FAILED"
+                Write-Warning $ErrorVar.message
+                $Computer | Out-File -FilePath $ErrorLog -Append
+                $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
+                Write-Warning "Logged to $ErrorLog"
+            }
+            foreach ($Share in $Shares) {
+                $Hash = @{
+                    'ComputerName' = $Computer;
+                    'Name' = $Share.Name;
+                    'Description' = $Share.Description;
+                    'Path' = $Share.Path
+                }
+                $Object = New-Object -TypeName psobject -Property $Hash
+                $Object.PSObject.TypeNames.Insert(0,'TTLab.RemoteSMBShare')
+                Write-Output $Object
+            }
+         }
+    }
+    END {}
+}
 
+#Variables
 Export-ModuleMember -Variable TTErrorLogPreference
+
+#General Functions
 Export-ModuleMember -Function Get-TTSystemInfo
 Export-ModuleMember -Function Get-TTVolumeInfo
 Export-ModuleMember -Function Get-TTServiceInfo
 Export-ModuleMember -Function Get-TTSystemInfo2
-Export-ModuleMember -Function Set-TTInventoryInDB
-Export-ModuleMember -Function Get-TTDatabaseData
-Export-ModuleMember -Function Get-TTNamesFromDB
-Export-ModuleMember -Function Invoke-TTDatabaseQuery
+Export-ModuleMember -Function Get-TTRemoteSMBShare
+
+#Database Functions
+Export-ModuleMember -Function Get-TTDBData
+Export-ModuleMember -Function Invoke-TTDBData
