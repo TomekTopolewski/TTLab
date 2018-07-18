@@ -51,7 +51,7 @@ Function Get-TTSystemInfo {
             Write-Verbose "Querying $Computer"
             Try {
                 $ErrorStatus = $True
-                $OS = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar
+                $OS = Get-CimInstance -ClassName Win32_OperatingSystem -ComputerName localhost -ErrorAction Stop -ErrorVariable ErrorVar
             } Catch {
                 $ErrorStatus = $False
                 Write-Warning "$Computer FAILED"
@@ -64,8 +64,8 @@ Function Get-TTSystemInfo {
             }
 
             if ($ErrorStatus) {
-                $Comp = Get-WmiObject -Class Win32_ComputerSystem -ComputerName $Computer
-                $Bios = Get-WmiObject -Class Win32_BIOS -ComputerName $Computer
+                $Comp = Get-CimInstance -ClassName Win32_ComputerSystem -ComputerName $Computer
+                $Bios = Get-CimInstance -ClassName Win32_BIOS -ComputerName $Computer
 
                 switch ($Comp.AdminPasswordStatus) {
                     1 {$AdminPassText = 'Disabled'}
@@ -142,7 +142,7 @@ Function Get-TTVolumeInfo {
             Write-Verbose "Querying $Computer"
             Try {
                 $ErrorStatus = $True
-                $Volumes = Get-WmiObject -Class Win32_Volume -ComputerName $Computer -Filter "DriveType=3" -ErrorAction Stop -ErrorVariable ErrorVar
+                $Volumes = Get-CimInstance -ClassName Win32_Volume -ComputerName $Computer -Filter "DriveType=3" -ErrorAction Stop -ErrorVariable ErrorVar
             } Catch {
                 Write-Warning "$Computer FAILED"
                 Write-Warning $ErrorVar.message
@@ -225,7 +225,7 @@ Function Get-TTServiceInfo {
             Write-Verbose "Querying $Computer"
             Try {
                 $ErrorStatus = $True
-                $Services = Get-WmiObject -Class Win32_Service -ComputerName $Computer -Filter "State='Running'" -ErrorAction Stop -ErrorVariable ErrorVar
+                $Services = Get-CimInstance -ClassName Win32_Service -ComputerName $Computer -Filter "State='Running'" -ErrorAction Stop -ErrorVariable ErrorVar
             } Catch {
                 $ErrorStatus = $False
                 Write-Warning "$Computer FAILED"
@@ -239,7 +239,7 @@ Function Get-TTServiceInfo {
             if ($ErrorStatus) {
                 foreach ($Service in $Services) {
                     $ProcessID = $Service.ProcessID
-                    $Process = Get-WmiObject -Class Win32_Process -ComputerName $Computer -Filter "ProcessId=$ProcessID"
+                    $Process = Get-CimInstance -ClassName Win32_Process -ComputerName $Computer -Filter "ProcessId=$ProcessID"
 
                     $Hash = @{
                         'ProcessName' = $Process.Name
@@ -310,7 +310,7 @@ Function Get-TTSystemInfo2 {
             Write-Verbose "Quering $Computer"
             Try {
                 $ErrorStatus = $True
-                $Win32_OS = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar
+                $Win32_OS = Get-CimInstance -ClassName Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar
             } Catch {
                 $ErrorStatus = $False
                 Write-Warning "$Computer FAILED"
@@ -323,11 +323,11 @@ Function Get-TTSystemInfo2 {
             }
 
             if ($ErrorStatus) {
-                $Win32_CS = Get-WmiObject -Class Win32_ComputerSystem -ComputerName $Computer
+                $Win32_CS = Get-CimInstance -ClassName Win32_ComputerSystem -ComputerName $Computer
                 $Hash = @{
                     OSType = $Win32_OS.Caption
                     ComputerName = $Win32_OS.PSComputerName
-                    LastBootTime = $Win32_OS.ConvertToDateTime($Win32_OS.LastBootUpTime)
+                    LastBootTime = $Win32_OS.LastBootUpTime
                     Manufacturer = $Win32_CS.Manufacturer
                     Model = $Win32_CS.Model
                 }
@@ -547,7 +547,7 @@ Function Get-TTProgram {
             Try {
                 $Status = $True
                 Write-Verbose "Querying $Computer for OS architecture"
-                $OSArchitecture = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar | Select-Object -ExpandProperty OSArchitecture
+                $OSArchitecture = Get-CimInstance -ClassName Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar | Select-Object -ExpandProperty OSArchitecture
             } Catch {
                 $Status = $False
                 Write-Warning "Querying $Computer for OS architecture FAILED"
