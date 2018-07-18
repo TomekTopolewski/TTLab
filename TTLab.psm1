@@ -369,8 +369,10 @@ Function Get-TTDBData {
     )
 
     if ($IsSQLServer) {
+        Write-Verbose "Creating SqlConnection"
         $Connection = New-Object -TypeName System.Data.SqlClient.SqlConnection
     } else {
+        Write-Verbose "Creating OleDbConnection"
         $Connection = New-Object -TypeName System.Data.OleDb.OleDbConnection
     }
 
@@ -379,8 +381,10 @@ Function Get-TTDBData {
     $Command.CommandText = $Query
 
     if ($IsSQLServer) {
+        Write-Verbose "Creating SqlDataAdapter"
         $Adapter = New-Object -TypeName System.Data.SqlClient.SqlDataAdapter $Command
     } else {
+        Write-Verbose "Creating OleDbDataAdapter"
         $Adapter = New-Object -TypeName System.Data.OleDb.OleDbDataAdapter $Command
     }
 
@@ -416,8 +420,10 @@ Function Invoke-TTDBData {
     )
 
     if ($IsSQLServer) {
+        Write-Verbose "Creating SqlConnection"
         $Connection = New-Object -TypeName System.Data.SqlClient.SqlConnection
     } else {
+        Write-Verbose "Creating OleDbConnection"
         $Connection = New-Object -TypeName System.Data.OleDb.OleDbConnection
     }
 
@@ -426,40 +432,11 @@ Function Invoke-TTDBData {
     $Command.CommandText = $Query
 
     if ($PSCmdlet.ShouldProcess($Query)) {
+        Write-Verbose "Executing $Query"
         $Connection.Open()
         $Command.ExecuteNonQuery() | Out-Null
         $Connection.Close()
-    }
-}
-Function Get-TTDBNames {
-    <#
-    .SYNOPSIS
-    A sample function used to gather information from specific database.
-    #>
-    Get-TTDBData -ConnectionString $TTConnectionString -Query "SELECT computername FROM computers" -IsSQLServer
-}
-Function Set-TTDBInventory {
-    <#
-    .SYNOPSIS
-    A sample function used to update computer list in database.
-    #>
-    [CmdletBinding()]
-    Param(
-        [Parameter(Mandatory = $True, ValueFromPipeline = $True)]
-        [Object]$InputObject
-    )
-
-    foreach ($Object in $InputObject) {
-        $Query = "UPDATE
-                    computers
-                SET
-                    OSversion = '$($Object.OSversion)',
-                    SPversion = '$($Object.SPversion)',
-                    Manufacturer = '$($Object.Manufacturer)',
-                    Model = '$($Object.Model)'
-                WHERE
-                    computername = '$($Object.ComputerName)'"
-        Invoke-TTDBData -ConnectionString $TTConnectionString -Query $Query -IsSQLServer
+        Write-Verbose "Connection closed"
     }
 }
 Function Get-TTRemoteSMBShare {
@@ -506,6 +483,7 @@ Function Get-TTRemoteSMBShare {
                     'Description' = $Share.Description;
                     'Path' = $Share.Path
                 }
+                Write-Verbose "WMI query completed"
                 $Object = New-Object -TypeName psobject -Property $Hash
                 $Object.PSObject.TypeNames.Insert(0,'TTLab.RemoteSMBShare')
                 Write-Output $Object
@@ -587,6 +565,7 @@ Function Get-TTProgram {
                         'Version' = $Program.DisplayVersion;
                         'Publisher' = $Program.Publisher
                     }
+                    Write-Verbose "WMI query completed. Creating object"
                     $Object = New-Object -TypeName psobject -Property $Hash
                     $Object.PSObject.TypeNames.Insert(0,'TTLab.Program')
                     Write-Output $Object
