@@ -454,6 +454,8 @@ Function Get-TTRemoteSMBShare {
     Gets the information about SMB shares from the specified computers, up to 5 machines are allowed.
     .PARAMETER ErrorLog
     Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
+    .PARAMETER LogErrors
+    Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
     .EXAMPLE
     Get-TTRemoteSMBShare -ComputerName localhost, localhost
     .EXAMPLE
@@ -470,32 +472,52 @@ Function Get-TTRemoteSMBShare {
         [ValidateNotNullOrEmpty()]
         [string[]]$ComputerName,
 
-        [string]$ErrorLog = $TTErrorLogPreference
+        [string]$ErrorLog = $TTErrorLogPreference,
+
+        [switch]$LogErrors
     )
-    BEGIN {}
+    BEGIN {
+        if ($LogErrors) {
+            Write-Verbose "Error log: $ErrorLog"
+            Try {
+                Remove-Item -Path $ErrorLog -ErrorAction Stop -ErrorVariable ErrorVar
+                Write-Warning "Previos log at $ErrorLog was removed"
+            } Catch {
+                Write-Warning $ErrorVar.message
+            }
+        } else {
+            Write-Verbose "Error log is off"
+        }
+    }
     PROCESS {
         foreach ($Computer in $ComputerName) {
             Try {
+                $Status = $True
                 Write-Verbose "Querying $Computer"
                 $Shares = Invoke-Command -ComputerName $Computer -ScriptBlock {Get-SmbShare} -ErrorAction Stop -ErrorVariable ErrorVar
             } Catch {
+                $Status = $False
                 Write-Warning "$Computer FAILED"
                 Write-Warning $ErrorVar.message
-                $Computer | Out-File -FilePath $ErrorLog -Append
-                $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
-                Write-Warning "Logged to $ErrorLog"
-            }
-            foreach ($Share in $Shares) {
-                $Hash = @{
-                    'ComputerName' = $Computer;
-                    'Name' = $Share.Name;
-                    'Description' = $Share.Description;
-                    'Path' = $Share.Path
+                If ($LogErrors) {
+                    $Computer | Out-File -FilePath $ErrorLog -Append
+                    $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
+                    Write-Warning "Logged to $ErrorLog"
                 }
-                Write-Verbose "WMI query completed"
-                $Object = New-Object -TypeName psobject -Property $Hash
-                $Object.PSObject.TypeNames.Insert(0,'TTLab.RemoteSMBShare')
-                Write-Output $Object
+            }
+            if ($Status) {
+                foreach ($Share in $Shares) {
+                    $Hash = @{
+                        'ComputerName' = $Computer;
+                        'Name' = $Share.Name;
+                        'Description' = $Share.Description;
+                        'Path' = $Share.Path
+                    }
+                    Write-Verbose "WMI query completed"
+                    $Object = New-Object -TypeName psobject -Property $Hash
+                    $Object.PSObject.TypeNames.Insert(0,'TTLab.RemoteSMBShare')
+                    Write-Output $Object
+                }
             }
          }
     }
@@ -517,6 +539,8 @@ Function Get-TTProgram {
     Gets the information about installed programs from the specified computers, up to ten machines are allowed.
     .PARAMETER ErrorLog
     Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
+    .PARAMETER LogErrors
+    Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
     .EXAMPLE
     Get-TTProgram -ComputerName localhost
     #>
@@ -531,9 +555,23 @@ Function Get-TTProgram {
         [ValidateNotNullOrEmpty()]
         [string[]]$ComputerName,
 
-        [string]$ErrorLog = $TTErrorLogPreference
+        [string]$ErrorLog = $TTErrorLogPreference,
+
+        [switch]$LogErrors
     )
-    BEGIN {}
+    BEGIN {
+        if ($LogErrors) {
+            Write-Verbose "Error log: $ErrorLog"
+            Try {
+                Remove-Item -Path $ErrorLog -ErrorAction Stop -ErrorVariable ErrorVar
+                Write-Warning "Previos log at $ErrorLog was removed"
+            } Catch {
+                Write-Warning $ErrorVar.message
+            }
+        } else {
+            Write-Verbose "Error log is off"
+        }
+    }
     PROCESS {
         foreach ($Computer in $ComputerName) {
             Try {
@@ -544,9 +582,11 @@ Function Get-TTProgram {
                 $Status = $False
                 Write-Warning "Querying $Computer for OS architecture FAILED"
                 Write-Warning $ErrorVar.message
-                $Computer | Out-File -FilePath $ErrorLog -Append
-                $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
-                Write-Warning "Logged to $ErrorLog"
+                If ($LogErrors) {
+                    $Computer | Out-File -FilePath $ErrorLog -Append
+                    $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
+                    Write-Warning "Logged to $ErrorLog"
+                }
             }
             if ($Status) {
                 if ($OSArchitecture.Substring(0,2) -eq 32) {
@@ -556,9 +596,11 @@ Function Get-TTProgram {
                     } Catch {
                         Write-Warning "$Computer FAILED"
                         Write-Warning $ErrorVar.message
-                        $Computer | Out-File -FilePath $ErrorLog -Append
-                        $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
-                        Write-Warning "Logged to $ErrorLog"
+                        If ($LogErrors) {
+                            $Computer | Out-File -FilePath $ErrorLog -Append
+                            $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
+                            Write-Warning "Logged to $ErrorLog"
+                        }
                     }
                 } else {
                     Try {
@@ -567,9 +609,11 @@ Function Get-TTProgram {
                     } Catch {
                         Write-Warning "$Computer FAILED"
                         Write-Warning $ErrorVar.message
-                        $Computer | Out-File -FilePath $ErrorLog -Append
-                        $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
-                        Write-Warning "Logged to $ErrorLog"
+                        If ($LogErrors) {
+                            $Computer | Out-File -FilePath $ErrorLog -Append
+                            $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
+                            Write-Warning "Logged to $ErrorLog"
+                        }
                     }
                 }
                 foreach ($Program in $Programs) {
