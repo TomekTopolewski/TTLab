@@ -6,11 +6,11 @@ Function Get-TTSystemInfo {
     .DESCRIPTION
         The Get-TTSystemInfo cmdlet uses WMI classes (Win32_OperatingSYstem and Win32_ComputerSystem) to gather information about hardware and software from a local or remote computer.
     .PARAMETER ComputerName
-        Up to 10 computer names are allowed.
+        Gets the information about hardware and software from the specified computers, up to ten machines are allowed.
     .PARAMETER ErrorLog
-        Path to the place where the error log will be stored.
+        Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
     .PARAMETER LogErrors
-        It is a switch parameter to turn the log on or off.
+        Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
     .EXAMPLE
         Get-Content U:\Temp\Computers.txt | Get-TTSystemInfo -Verbose
     .EXAMPLE
@@ -97,11 +97,11 @@ Function Get-TTVolumeInfo {
     .DESCRIPTION
         The Get-TTVolumeInfo cmdlet uses the Win32_Volume class to gather information about physical drives from a local or remote computer.
     .PARAMETER ComputerName
-        Up to 10 computer names are allowed.
+        Gets the information about volumes from the specified computers, up to ten machines are allowed.
     .PARAMETER ErrorLog
-        Path to the place where the error log will be stored.
+        Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
     .PARAMETER LogErrors
-        It is a switch parameter to turn the log on or off.
+        Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
     .EXAMPLE
         Get-Content U:\Temp\Computers.txt | Get-TTVolumeInfo -Verbose
     .EXAMPLE
@@ -180,11 +180,11 @@ Function Get-TTServiceInfo {
     .DESCRIPTION
         The Get-TTServiceInfo cmdlet uses WMI classes (Win32_Service and Win32_Process) to gather information about services from a local or remote computer.
     .PARAMETER ComputerName
-        Up to 10 computer names are allowed.
+        Gets the information about services from the specified computers, up to ten machines are allowed.
     .PARAMETER ErrorLog
-        Path to the place where the error log will be stored.
+        Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
     .PARAMETER LogErrors
-        It is a switch parameter to turn the log on or off.
+        Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
     .EXAMPLE
         Get-Content U:\Temp\Computers.txt | Get-TTServiceInfo -Verbose
     .EXAMPLE
@@ -265,11 +265,11 @@ Function Get-TTSystemInfo2 {
     .DESCRIPTION
         The Get-TTSystenInfo cmdlet uses WMI classes (Win32_OperatingSystem and Win32_ComputerSystem) to gather information about hardware and software from a local or remote computer.
     .PARAMETER ComputerName
-        Up to 5 computer names are allowed.
+        Gets the information about hardware and software from the specified computers, up to ten machines are allowed.
     .PARAMETER ErrorLog
-        Path to the place where the error log will be stored.
+        Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
     .PARAMETER LogErrors
-        It is a switch parameter to turn the log on or off.
+        Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
     .EXAMPLE
         Get-Content U:\Temp\Computers.txt | Get-TTSystemInfo2 -Verbose
     .EXAMPLE
@@ -347,11 +347,11 @@ Function Get-TTDBData {
 
         It is prepared to work with databases from MS and other which supports OLEDB connection.
     .PARAMETER ConnectionString
-        Connection string should contain information about which database to connect and how to do it.
+        Specifies the connection string which should contain information how to connect to a database.
     .PARAMETER Query
-        The actual SQL language query that will run.
+        Specifies the actual SQL language query that will run.
     .PARAMETER IsSQLServer
-        It is a switch parameter to choose between MS and other databases.
+        Indicates that we will query MS-SQL Server database.
     .EXAMPLE
         $ConnectionString = "server=localhost\SQLEXPRESS;database=inventory;trusted_connection=$True"
 
@@ -402,11 +402,11 @@ Function Invoke-TTDBData {
 
         It is prepared to work with databases from MS and other which supports OLEDB connection.
     .PARAMETER ConnectionString
-        Connection string should contain information about which database to connect and how to do it.
+        Specifies the connection string which should contain information how to connect to a database.
     .PARAMETER Query
-        The actual SQL language query that will run.
+        Specifies the actual SQL language query that will run.
     .PARAMETER IsSQLServer
-        It is a switch parameter to choose between MS and other databases.
+        Indicates that we will query MS-SQL Server database.
     .EXAMPLE
         $ConnectionString = "server=localhost\SQLEXPRESS;database=inventory;trusted_connection=$True"
 
@@ -451,7 +451,9 @@ Function Get-TTRemoteSMBShare {
     The Get-TTRemoteSMBShare cmdlet gets a list of SMB shares on a local or remote computer.
     It uses an Invoke-Command query to connect to a machine.
     .PARAMETER ComputerName
-    Up to 5 computer names are allowed.
+    Gets the information about SMB shares from the specified computers, up to 5 machines are allowed.
+    .PARAMETER ErrorLog
+    Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
     .EXAMPLE
     Get-TTRemoteSMBShare -ComputerName localhost, localhost
     .EXAMPLE
@@ -512,9 +514,9 @@ Function Get-TTProgram {
 
     As a final step, it creates an object called TTLab.Program which can be piped to another cmdlet.
     .PARAMETER ComputerName
-    Up to 10 computer names are allowed.
+    Gets the information about installed programs from the specified computers, up to ten machines are allowed.
     .PARAMETER ErrorLog
-    Path to the place where the error log will be stored. Default is C:\Error.txt.
+    Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
     .EXAMPLE
     Get-TTProgram -ComputerName localhost
     #>
