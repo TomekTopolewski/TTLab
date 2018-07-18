@@ -1,12 +1,10 @@
 ﻿$TTErrorLogPreference = 'C:\Error.txt'
-$TTConnectionString = "server=localhost\SQLEXPRESS;database=inventory;trusted_connection=$True"
-
 Function Get-TTSystemInfo {
     <#
     .SYNOPSIS
-        Retrieves information about hardware and software from local or remote machine.
+        Gets information about hardware and software from a local or remote machine.
     .DESCRIPTION
-        Get-SystenInfo uses WMI classes like Win32_OperatingSYstem or Win32_ComputerSystem to gather information from local or remote machine.
+        The Get-TTSystemInfo cmdlet uses WMI classes (Win32_OperatingSYstem and Win32_ComputerSystem) to gather information about hardware and software from a local or remote computer.
     .PARAMETER ComputerName
         Up to 10 computer names are allowed.
     .PARAMETER ErrorLog
@@ -95,9 +93,9 @@ Function Get-TTSystemInfo {
 Function Get-TTVolumeInfo {
     <#
     .SYNOPSIS
-        Retrieves information about physical drives from local or remote machine.
+        Gets information about physical drives from a local or remote computer.
     .DESCRIPTION
-        It uses Win32_Volume class under the hood to gather information from local or remote machine.
+        The Get-TTVolumeInfo cmdlet uses the Win32_Volume class to gather information about physical drives from a local or remote computer.
     .PARAMETER ComputerName
         Up to 10 computer names are allowed.
     .PARAMETER ErrorLog
@@ -178,9 +176,9 @@ Function Get-TTVolumeInfo {
 Function Get-TTServiceInfo {
     <#
     .SYNOPSIS
-        Retrieves information about services from local or remote machine.
+        Gets information about services from a local or remote computer.
     .DESCRIPTION
-        Get-ServiceInfo uses WMI classes like Win32_Service and Win32_Process to gather information from local or remote machine.
+        The Get-TTServiceInfo cmdlet uses WMI classes (Win32_Service and Win32_Process) to gather information about services from a local or remote computer.
     .PARAMETER ComputerName
         Up to 10 computer names are allowed.
     .PARAMETER ErrorLog
@@ -263,9 +261,9 @@ Function Get-TTServiceInfo {
 Function Get-TTSystemInfo2 {
     <#
     .SYNOPSIS
-        Retrieves information about hardware and software from local or remote machine.
+        Gets information about hardware and software from a local or remote computer.
     .DESCRIPTION
-        Get-SystenInfo uses WMI classes like Win32_OperatingSYstem or Win32_ComputerSystem to gather information from local or remote machine.
+        The Get-TTSystenInfo cmdlet uses WMI classes (Win32_OperatingSystem and Win32_ComputerSystem) to gather information about hardware and software from a local or remote computer.
     .PARAMETER ComputerName
         Up to 5 computer names are allowed.
     .PARAMETER ErrorLog
@@ -343,21 +341,23 @@ Function Get-TTSystemInfo2 {
 Function Get-TTDBData {
     <#
     .SYNOPSIS
-    Function used to query information from a database. It is designed to work with MS-SQL databases and others via OleDB objects.
+        Gets data from a database.
     .DESCRIPTION
-    It uses .NET Framework object System.Data.SQLClient/OleDB.
+        The Get-TTDBData cmdlet is used to queries information from a database.
+
+        It is prepared to work with databases from MS and other which supports OLEDB connection.
     .PARAMETER ConnectionString
-    Connection string should contain information about which database to connect and how to do it.
+        Connection string should contain information about which database to connect and how to do it.
     .PARAMETER Query
-    The actual SQL language query that will run.
+        The actual SQL language query that will run.
     .PARAMETER IsSQLServer
-    It is a switch parameter to choose between MS and other databases.
+        It is a switch parameter to choose between MS and other databases.
     .EXAMPLE
-    $ConnectionString = "server=localhost\SQLEXPRESS;database=inventory;trusted_connection=$True"
+        $ConnectionString = "server=localhost\SQLEXPRESS;database=inventory;trusted_connection=$True"
 
-    $Query = "SELECT Something FROM Somewhere WHERE Something = Something"
+        $Query = "SELECT Something FROM Somewhere WHERE Something = Something"
 
-    Get-TTDBData -ConnectionString $ConnectionString -Query $Query -IsSQLServer
+        Get-TTDBData -ConnectionString $ConnectionString -Query $Query -IsSQLServer
     #>
     [CmdletBinding()]
     Param (
@@ -396,19 +396,23 @@ Function Get-TTDBData {
 Function Invoke-TTDBData {
     <#
     .SYNOPSIS
-    Function used to work with data in database
+        Write data to a database.
+    .DESCRIPTION
+        The Invoke-TTDBData cmdlet is used to write data to a database.
+
+        It is prepared to work with databases from MS and other which supports OLEDB connection.
     .PARAMETER ConnectionString
-    Connection string should contain information about which database to connect and how to do it.
+        Connection string should contain information about which database to connect and how to do it.
     .PARAMETER Query
-    The actual SQL language query that will run.
+        The actual SQL language query that will run.
     .PARAMETER IsSQLServer
-    It is a switch parameter to choose between MS and other databases.
+        It is a switch parameter to choose between MS and other databases.
     .EXAMPLE
-    $ConnectionString = "server=localhost\SQLEXPRESS;database=inventory;trusted_connection=$True"
+        $ConnectionString = "server=localhost\SQLEXPRESS;database=inventory;trusted_connection=$True"
 
-    $Query = "UPDATE Database SET Columns = Something, Columns = Something"
+        $Query = "UPDATE Database SET Columns = Something, Columns = Something"
 
-    Get-TTDBQuery -ConnectionString $ConnectionString -Query $Query
+        Get-TTDBQuery -ConnectionString $ConnectionString -Query $Query
     #>
     [CmdletBinding(SupportsShouldProcess = $True, ConfirmImpact = 'Low')]
     Param (
@@ -442,7 +446,10 @@ Function Invoke-TTDBData {
 Function Get-TTRemoteSMBShare {
     <#
     .SYNOPSIS
-    Function returns a list of SMB shares on local or remote computers
+    Gets a list of SMB shares on a local or remote computer.
+    .DESCRIPTION
+    The Get-TTRemoteSMBShare cmdlet gets a list of SMB shares on a local or remote computer.
+    It uses an Invoke-Command query to connect to a machine.
     .PARAMETER ComputerName
     Up to 5 computer names are allowed.
     .EXAMPLE
@@ -455,7 +462,7 @@ Function Get-TTRemoteSMBShare {
         [Parameter(Mandatory=$True,
         ValueFromPipeline=$True,
         ValueFromPipelineByPropertyName=$True,
-        HelpMessage="Computer name or IP address")]
+        HelpMessage="Computer name")]
         [Alias('Hostname')]
         [ValidateCount(1,5)]
         [ValidateNotNullOrEmpty()]
@@ -495,10 +502,15 @@ Function Get-TTRemoteSMBShare {
 Function Get-TTProgram {
     <#
     .SYNOPSIS
-    Function returns a list of installed software on local or remote computers.
+    Gets a list of installed software on a local or remote computer.
     .DESCRIPTION
-    It uses Win32_OperatingSystem to check whether it is 32 or 64-bits architecture.
-    After that function looks into registry to find the list of installed software.
+    The Get-TTProgram cmdlet gets a list of installed software on a local or remote computer.
+
+    Before it starts to look for installed software it queries Win32_OperatingSystem class to check whether it is 32 or 64-bits architecture.
+    Next, it retrieves a list from HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* for 32-bits systems or from
+    HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* for 64-bits systems.
+
+    As a final step, it creates an object called TTLab.Program which can be piped to another cmdlet.
     .PARAMETER ComputerName
     Up to 10 computer names are allowed.
     .PARAMETER ErrorLog
