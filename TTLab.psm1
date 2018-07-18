@@ -369,10 +369,10 @@ Function Get-TTDBData {
     )
 
     if ($IsSQLServer) {
-        Write-Verbose "Creating SqlConnection"
+        Write-Verbose "Attempting to create a SqlConnection"
         $Connection = New-Object -TypeName System.Data.SqlClient.SqlConnection
     } else {
-        Write-Verbose "Creating OleDbConnection"
+        Write-Verbose "Attempting to create a OleDbConnection"
         $Connection = New-Object -TypeName System.Data.OleDb.OleDbConnection
     }
 
@@ -424,10 +424,10 @@ Function Invoke-TTDBData {
     )
 
     if ($IsSQLServer) {
-        Write-Verbose "Creating SqlConnection"
+        Write-Verbose "Attempting to create a SqlConnection"
         $Connection = New-Object -TypeName System.Data.SqlClient.SqlConnection
     } else {
-        Write-Verbose "Creating OleDbConnection"
+        Write-Verbose "Attempting to create a OleDbConnection"
         $Connection = New-Object -TypeName System.Data.OleDb.OleDbConnection
     }
 
