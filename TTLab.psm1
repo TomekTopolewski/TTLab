@@ -1,4 +1,5 @@
 ﻿$TTErrorLogPreference = 'C:\Error.txt'
+
 Function Get-TTSystemInfo {
     <#
     .SYNOPSIS
@@ -90,6 +91,7 @@ Function Get-TTSystemInfo {
     }
     END {}
 }
+
 Function Get-TTVolumeInfo {
     <#
     .SYNOPSIS
@@ -173,6 +175,7 @@ Function Get-TTVolumeInfo {
     }
     END {}
 }
+
 Function Get-TTServiceInfo {
     <#
     .SYNOPSIS
@@ -258,6 +261,7 @@ Function Get-TTServiceInfo {
     }
     END {}
 }
+
 Function Get-TTSystemInfo2 {
     <#
     .SYNOPSIS
@@ -338,6 +342,7 @@ Function Get-TTSystemInfo2 {
     }
     END {}
 }
+
 Function Get-TTDBData {
     <#
     .SYNOPSIS
@@ -393,6 +398,7 @@ Function Get-TTDBData {
     $DataSet.Tables[0]
     $Connection.Close()
 }
+
 Function Invoke-TTDBData {
     <#
     .SYNOPSIS
@@ -443,6 +449,7 @@ Function Invoke-TTDBData {
         Write-Verbose "Connection closed"
     }
 }
+
 Function Get-TTRemoteSMBShare {
     <#
     .SYNOPSIS
@@ -523,6 +530,7 @@ Function Get-TTRemoteSMBShare {
     }
     END {}
 }
+
 Function Get-TTProgram {
     <#
     .SYNOPSIS
@@ -634,6 +642,82 @@ Function Get-TTProgram {
     END {}
 }
 
+Function Restart-TTComputer {
+    <#
+    .SYNOPSIS
+    Reboots local or remote computer.
+    .DESCRIPTION
+    The Restart-TTComputer cmdlet reboots a local or remote computer.
+    It uses both Invoke-CimMethod and Invoke-WmiMethod, second is launched when the first failed.
+    .PARAMETER ComputerName
+    Gets the information about installed programs from the specified computers, up to ten machines are allowed.
+    .PARAMETER ErrorLog
+    Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
+    .PARAMETER LogErrors
+    Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+    #>
+    [CmdletBinding(SupportsShouldProcess = $True, ConfirmImpact = 'High')]
+    Param (
+        [Parameter(Mandatory=$True,
+                    ValueFromPipeline=$True,
+                    ValueFromPipelineByPropertyName = $True,
+                    HelpMessage="Computer name")]
+        [Alias('Hostname')]
+        [ValidateNotNullOrEmpty()]
+        [string[]]$ComputerName,
+
+        [string]$ErrorLog = $TTErrorLogPreference,
+
+        [switch]$LogErrors
+    )
+    BEGIN {
+        if ($LogErrors) {
+            Write-Verbose "Error log: $ErrorLog"
+            Try {
+                Remove-Item -Path $ErrorLog -ErrorAction Stop -ErrorVariable ErrorVar
+                Write-Warning "Previos log at $ErrorLog was removed"
+            } Catch {
+                Write-Warning $ErrorVar.message
+            }
+        } else {
+            Write-Verbose "Error log is off"
+        }
+    }
+    PROCESS {
+        foreach ($Computer in $ComputerName) {
+            Try {
+                $Status = $True
+                Write-Debug "Attempting to reboot $Computer via Invoke-CimMethod"
+                Invoke-CimMethod -ClassName Win32_OperatingSystem -ComputerName $Computer -MethodName Reboot -ErrorAction Stop -ErrorVariable ErrorVar
+            } Catch {
+                $Status = $False
+                Write-Warning "$Computer reboot FAILED (Cim)"
+                Write-Warning $ErrorVar.message
+                If ($LogErrors) {
+                    $Computer | Out-File -FilePath $ErrorLog -Append
+                    $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
+                    Write-Warning "Logged to $ErrorLog"
+                }
+            }
+            If ($Status = $False) {
+                Try {
+                    Write-Debug "Attempting to reboot $Computer via Invoke-WmiMethod"
+                    Invoke-WmiMethod -Class Win32_OperatingSystem -Name Reboot -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar
+                } Catch {
+                    Write-Warning "$Computer reboot FAILED (Wmi)"
+                    Write-Warning $ErrorVar.message
+                    If ($LogErrors) {
+                        $Computer | Out-File -FilePath $ErrorLog -Append
+                        $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
+                        Write-Warning "Logged to $ErrorLog"
+                    }
+                }
+            }
+        }
+    }
+    END {}
+}
+
 #Variables
 Export-ModuleMember -Variable TTErrorLogPreference
 
@@ -644,6 +728,7 @@ Export-ModuleMember -Function Get-TTServiceInfo
 Export-ModuleMember -Function Get-TTSystemInfo2
 Export-ModuleMember -Function Get-TTRemoteSMBShare
 Export-ModuleMember -Function Get-TTProgram
+Export-ModuleMember -Function Restart-TTComputer
 
 #Database Functions
 Export-ModuleMember -Function Get-TTDBData
