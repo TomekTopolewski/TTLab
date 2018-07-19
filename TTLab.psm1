@@ -718,6 +718,84 @@ Function Restart-TTComputer {
     END {}
 }
 
+Function Set-TTServicePassword {
+        <#
+    .SYNOPSIS
+    Changes the service's startup password.
+    .DESCRIPTION
+    The Set-TTServicePassword cmdlet changes the service's startup password.
+    .PARAMETER ServiceName
+    Specifies the service names of services to be retrieved.
+    .PARAMETER Password
+    Specifies the new service's password.
+    .PARAMETER ComputerName
+    Gets the information about installed programs from the specified computers, up to ten machines are allowed.
+    .PARAMETER ErrorLog
+    Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
+    .PARAMETER LogErrors
+    Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+    #>
+    [CmdletBinding(SupportsShouldProcess = $True, ConfirmImpact = 'Medium')]
+    Param (
+        [Parameter(Mandatory=$True,
+                    ValueFromPipeline=$True,
+                    ValueFromPipelineByPropertyName = $True,
+                    HelpMessage="Computer name")]
+        [Alias('Hostname')]
+        [ValidateNotNullOrEmpty()]
+        [string[]]$ComputerName,
+
+        [Parameter(Mandatory = $True)]
+        [string]$ServiceName,
+
+        [Parameter(Mandatory = $True)]
+        [string]$Password,
+
+        [string]$ErrorLog = $TTErrorLogPreference,
+
+        [switch]$LogErrors
+    )
+    BEGIN {
+        if ($LogErrors) {
+            Write-Verbose "Error log: $ErrorLog"
+            Try {
+                Remove-Item -Path $ErrorLog -ErrorAction Stop -ErrorVariable ErrorVar
+                Write-Warning "Previos log at $ErrorLog was removed"
+            } Catch {
+                Write-Warning $ErrorVar.message
+            }
+        } else {
+            Write-Verbose "Error log is off"
+        }
+    }
+    PROCESS {
+        foreach ($Computer in $ComputerName) {
+            Try {
+                $Status = $True
+                Write-Debug "Querying $Computer"
+                $Services = Get-WmiObject -ComputerName $Computer -Class Win32_Service -Filter "name='$ServiceName" -ErrorAction Stop -ErrorVariable ErrorVar
+            } Catch {
+                $Status = $False
+                Write-Warning "Quering $Computer FAILED"
+                Write-Warning $ErrorVar.message
+                If ($LogErrors) {
+                    $Computer | Out-File -FilePath $ErrorLog -Append
+                    $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
+                    Write-Warning "Logged to $ErrorLog"
+                }
+            }
+            if ($Status) {
+                foreach ($Service in $Services) {
+                    if ($PSCmdlet.ShouldProcess("$Service on $Computer")) {
+                        $Service.change($null, $null, $null, $null, $null, $null, $null, $Password) | Out-Null
+                    }
+                }
+            }
+        }
+    }
+    END {}
+}
+
 #Variables
 Export-ModuleMember -Variable TTErrorLogPreference
 
@@ -729,6 +807,7 @@ Export-ModuleMember -Function Get-TTSystemInfo2
 Export-ModuleMember -Function Get-TTRemoteSMBShare
 Export-ModuleMember -Function Get-TTProgram
 Export-ModuleMember -Function Restart-TTComputer
+Export-ModuleMember -Function Set-TTServicePassword
 
 #Database Functions
 Export-ModuleMember -Function Get-TTDBData
