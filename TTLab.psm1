@@ -749,7 +749,7 @@ Function Set-TTServicePassword {
         [string]$ServiceName,
 
         [Parameter(Mandatory = $True)]
-        [string]$Password,
+        [securestring]$Password,
 
         [string]$ErrorLog = $TTErrorLogPreference,
 
@@ -796,6 +796,96 @@ Function Set-TTServicePassword {
     END {}
 }
 
+Function Set-TTComputerState {
+    <#
+    .SYNOPSIS
+    Performs the specified (LogOff, Restart, ShutDown, PowerOff) action on a local or remote machine.
+    .DESCRIPTION
+    The Set-TTComputerState cmdlet performs the specified action (LogOff, Restart, ShutDown, PowerOff) on a local or remote machine, which is set via -Action parameter.
+    .PARAMETER ComputerName
+    Performs the specified (LogOff, Restart, ShutDown, PowerOff) action on a local or remote machine, up to ten machines are allowed.
+    .PARAMETER ErrorLog
+    Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
+    .PARAMETER LogErrors
+    Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+    .PARAMETER Action
+    Accepts only one of the listed values: LogOff, Restart, ShutDown, PowerOff.
+    .PARAMETER Force
+    Indicates that any action specified by the -Action parameter will use -Force privileges.
+    #>
+    [CmdletBinding(SupportsShouldProcess = $True, ConfirmImpact = 'High')]
+    Param (
+        [Parameter(Mandatory=$True,
+                    ValueFromPipeline=$True,
+                    ValueFromPipelineByPropertyName = $True,
+                    HelpMessage="Computer name")]
+        [Alias('Hostname')]
+        [ValidateNotNullOrEmpty()]
+        [string[]]$ComputerName,
+
+        [string]$ErrorLog = $TTErrorLogPreference,
+
+        [switch]$LogErrors,
+
+        [switch]$Force,
+
+        [Parameter(Mandatory=$True)]
+        [ValidateSet("LogOff", "Restart", "ShutDown", "PowerOff")]
+        [ValidateNotNullOrEmpty()]
+        [string]$Action
+    )
+    BEGIN {
+        if ($LogErrors) {
+            Write-Verbose "Error log: $ErrorLog"
+            Try {
+                Remove-Item -Path $ErrorLog -ErrorAction Stop -ErrorVariable ErrorVar
+                Write-Warning "Previos log at $ErrorLog was removed"
+            } Catch {
+                Write-Warning $ErrorVar.message
+            }
+        } else {
+            Write-Verbose "Error log is off"
+        }
+
+        switch ($Action) {
+            "LogOff"    {$Attr = 0}
+            "Restart"   {$Attr = 1}
+            "ShutDown"  {$Attr = 2}
+            "PowerOff"  {$Attr = 8}
+        }
+    }
+    PROCESS {
+        foreach ($Computer in $ComputerName) {
+            Try {
+                $Status = $True
+                Write-Debug "Querying $Computer"
+                $OS = Get-WmiObject -ComputerName $Computer -Class Win32_OperatingSYstem -ErrorAction Stop -ErrorVariable ErrorVar
+            } Catch {
+                $Status = $False
+                Write-Warning "Quering $Computer FAILED"
+                Write-Warning $ErrorVar.message
+                If ($LogErrors) {
+                    $Computer | Out-File -FilePath $ErrorLog -Append
+                    $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
+                    Write-Warning "Logged to $ErrorLog"
+                }
+            }
+            if ($Status) {
+                if ($Force) {
+                    if($PSCmdlet.ShouldProcess("Quering Win32_Shutdown method with $Action on $Computer and -Force parameter")) {
+                        $OS.Win32Shutdown($Attr+4)
+                    }
+                } else {
+                    if($PSCmdlet.ShouldProcess("Quering Win32_Shutdown method with $Action on $Computer")) {
+                        $OS.Win32Shutdown($Attr)
+                    }
+                }
+            }
+        }
+    }
+    END {}
+}
+
 #Variables
 Export-ModuleMember -Variable TTErrorLogPreference
 
@@ -808,6 +898,7 @@ Export-ModuleMember -Function Get-TTRemoteSMBShare
 Export-ModuleMember -Function Get-TTProgram
 Export-ModuleMember -Function Restart-TTComputer
 Export-ModuleMember -Function Set-TTServicePassword
+Export-ModuleMember -Function Set-TTComputerState
 
 #Database Functions
 Export-ModuleMember -Function Get-TTDBData
