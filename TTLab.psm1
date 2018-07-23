@@ -350,7 +350,7 @@ Function Get-TTDBData {
     .DESCRIPTION
         The Get-TTDBData cmdlet is used to queries information from a database.
 
-        It is prepared to work with databases from MS and other which supports OLEDB connection.
+        It is prepared to work with MS databases and others which supports OLEDB connection.
     .PARAMETER ConnectionString
         Specifies the connection string which should contain information how to connect to a database.
     .PARAMETER Query
@@ -406,7 +406,7 @@ Function Invoke-TTDBData {
     .DESCRIPTION
         The Invoke-TTDBData cmdlet is used to write data to a database.
 
-        It is prepared to work with databases from MS and other which supports OLEDB connection.
+        It is prepared to work with MS databases and others which supports OLEDB connection.
     .PARAMETER ConnectionString
         Specifies the connection string which should contain information how to connect to a database.
     .PARAMETER Query
