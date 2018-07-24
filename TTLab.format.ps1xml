@@ -213,6 +213,35 @@
                     </TableRowEntry>
                  </TableRowEntries>
             </TableControl>
-        </View>                                  
+        </View>
+        <View>
+            <Name>TTLab.NetworkAdapter</Name>
+            <ViewSelectedBy>
+                <TypeName>TTLab.NetworkAdapter</TypeName>
+            </ViewSelectedBy>
+            <ListControl>
+                <ListEntries>
+                    <ListEntry>
+                        <ListItems>
+                            <ListItem>
+                                <PropertyName>ComputerName</PropertyName>
+                            </ListItem>
+                            <ListItem>
+                                <PropertyName>Name</PropertyName>
+                            </ListItem>
+                            <ListItem>
+                                <PropertyName>DHCP Enabled</PropertyName>
+                            </ListItem>
+                            <ListItem>
+                                <PropertyName>MAC</PropertyName>
+                            </ListItem>
+                            <ListItem>
+                                <PropertyName>IP</PropertyName>
+                            </ListItem>                                                                                                                                                                                                                                                                                                                                                                    
+                        </ListItems>
+                    </ListEntry>
+                </ListEntries>
+            </ListControl>
+        </View>                       
     </ViewDefinitions>
 </Configuration>
