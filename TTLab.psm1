@@ -50,7 +50,7 @@ Function Get-TTSystemInfo {
             Write-Verbose "Querying $Computer"
             Try {
                 $ErrorStatus = $True
-                $OS = Get-CimInstance -ClassName Win32_OperatingSystem -ComputerName localhost -ErrorAction Stop -ErrorVariable ErrorVar
+                $OS = Get-CimInstance -ClassName Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar
             } Catch {
                 $ErrorStatus = $False
                 Write-Warning "$Computer FAILED"
@@ -95,9 +95,9 @@ Function Get-TTSystemInfo {
 Function Get-TTVolumeInfo {
     <#
     .SYNOPSIS
-        Gets information about physical drives from a local or remote computer.
+        Gets information about drives from a local or remote computer.
     .DESCRIPTION
-        The Get-TTVolumeInfo cmdlet uses the Win32_Volume class to gather information about physical drives from a local or remote computer.
+        The Get-TTVolumeInfo cmdlet uses the Win32_Volume class to gather information about drives from a local or remote computer.
     .PARAMETER ComputerName
         Gets the information about volumes from the specified computers, up to ten machines are allowed.
     .PARAMETER ErrorLog
@@ -962,6 +962,280 @@ Function Get-TTNetworkInfo {
     END {}
 }
 
+Function Get-TTInfo {
+    <#
+    .SYNOPSIS
+    Gets a huge amount of information about a local or remote machine.
+    .DESCRIPTION
+    The Get-TTInfo cmdlet gets a huge amount of information about a local or remote machine.
+        'ComputerName' -    Hostname
+        'OSVersion' -       Operating system version
+        'SPVersion' -       Service pack version
+        'BIOSSerial' -      BIOS serial number
+        'Manufacturer' -    Device manufacturer
+        'Model' -           Device model
+        'AdminPassword' -   Admin password status
+        'Workgroup' -       Workgroip
+        'Volumes' -         List of disks
+        'Services' -        List of running services
+        'Shares' -          List of active shares
+        'Programs' -        List of installed programs
+        'Adapters' -        List of running network adapters
+
+        It uses CIM cmdlet to query:
+            Win32_OperatingSystem,
+            Win32_ComputerSystem,
+            Win32_BIOS,
+            Win32_Volume,
+            Win32_Service,
+            Win32_Process,
+            Win32_NetworkAdapterConfiguration classes. In addtion it uses two Invoke-Command cmdlets to run Get-ItemProperty cmdlet.
+
+        IN THIS FORM IT IS HIGHLY INEFFECTIVE DUE TO THE TIME NEEDED TO COMPLETE THE FUNCTION :)
+    .PARAMETER ComputerName
+    Gets information from a local or remote machine.
+    .PARAMETER ErrorLog
+    Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
+    .PARAMETER LogErrors
+    Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+    .EXAMPLE
+    PS C:\WINDOWS\system32> Get-TTInfo -ComputerName localhost | Export-Clixml -Path C:\PowerShellOutput\massive.xml
+    .EXAMPLE
+    PS C:\WINDOWS\system32> Get-TTInfo -ComputerName localhost | Select-Object -ExpandProperty Adapters
+
+    DHCP Enabled IP           Name                                                           MAC
+    True 192.168.0.10 Marvell Yukon 88E8059 Family PCI-E Gigabit Ethernet Controller 00:24:45:45:45:45
+    .EXAMPLE
+    PS C:\WINDOWS\system32> Get-TTInfo -ComputerName localhost | Select-Object -ExpandProperty Programs
+
+    Publisher                     Name                                                           Version
+    Igor Pavlov                   7-Zip 18.01                                                    18.01
+    Cisco Systems, Inc.           Cisco Packet Tracer 7.1.1 32Bit                                7.1.1.0131
+    Dropbox, Inc.                 Dropbox                                                        53.4.67
+    .EXAMPLE
+    PS C:\WINDOWS\system32> Get-TTInfo -ComputerName localhost | Select-Object -ExpandProperty Shares
+
+    Path                              Description     Name
+    C:\WINDOWS                        Remote Admin    ADMIN$
+    C:\                               Default share   C$
+    D:\                               Default share   D$
+    C:\WINDOWS\system32\spool\drivers Printer Drivers print$
+    .EXAMPLE
+    PS C:\WINDOWS\system32> Get-TTInfo -ComputerName localhost | Select-Object -ExpandProperty Services
+
+    ProcessName : svchost.exe
+    ServiceName : Appinfo
+    PeakPage    : 91540
+    VM          : 289193984
+    ThreadCount : 49
+    DisplayName : Application Information
+    .EXAMPLE
+    PS C:\WINDOWS\system32> Get-TTInfo -ComputerName localhost | Select-Object -ExpandProperty Volumes
+
+    FreeSpace(GB) Drive                                             Size(GB)
+    0.21          \\?\Volume{c019537a-0000-0000-0000-100000000000}\ 0.54
+    165.68        C:\                                               199.90
+    91.87         D:\                                               97.66
+    #>
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory=$True,
+                    ValueFromPipeline=$True,
+                    ValueFromPipelineByPropertyName = $True,
+                    HelpMessage="Computer name")]
+        [Alias('Hostname')]
+        [ValidateNotNullOrEmpty()]
+        [string[]]$ComputerName,
+
+        [string]$ErrorLog = $TTErrorLogPreference,
+
+        [switch]$LogErrors
+    )
+    BEGIN {
+        if ($LogErrors) {
+            Write-Verbose "Error log: $ErrorLog"
+            Try {
+                Remove-Item -Path $ErrorLog -ErrorAction Stop -ErrorVariable ErrorVar
+                Write-Warning "Previos log at $ErrorLog was removed"
+            } Catch {
+                Write-Warning $ErrorVar.message
+            }
+        } else {
+            Write-Verbose "Error log is off"
+        }
+    }
+    PROCESS {
+        foreach ($Computer in $ComputerName) {
+            Write-Verbose "Querying $Computer"
+            Try {
+                $Status = $True
+                $OS = Get-CimInstance -ClassName Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar
+            } Catch {
+                $Status = $False
+                Write-Warning "$Computer FAILED"
+                Write-Warning $ErrorVar.message
+                If ($LogErrors) {
+                    $Computer | Out-File -FilePath $ErrorLog -Append
+                    $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
+                    Write-Warning "Logged to $ErrorLog"
+                }
+            }
+            $VolumesArray = @()
+            $ServicesArray = @()
+            $SharesArray = @()
+            $ProgramsArray = @()
+            $AdaptersArray = @()
+            If ($Status) {
+                $Comp = Get-CimInstance -ClassName Win32_ComputerSystem -ComputerName $Computer
+                $Bios = Get-CimInstance -ClassName Win32_BIOS -ComputerName $Computer
+
+                switch ($Comp.AdminPasswordStatus) {
+                    1 {$AdminPassText = 'Disabled'}
+                    2 {$AdminPassText = 'Enabled'}
+                    3 {$AdminPassText = 'NA'}
+                    4 {$AdminPassText = 'Unknown'}
+                }
+                $SystemHash = @{
+                    'OSVersion' = $OS.version;
+                    'SPVersion' = $OS.servicepackmajorversion;
+                    'BIOSSerial' = $Bios.serialnumber;
+                    'Manufacturer' = $Comp.manufacturer;
+                    'Model' = $Comp.model;
+                    'AdminPassword' = $AdminPassText;
+                    'Workgroup' = $Comp.workgroup
+                }
+                $SystemObject = New-Object -TypeName psobject -Property $SystemHash
+
+                $Volumes = Get-CimInstance -ClassName Win32_Volume -ComputerName $Computer -Filter "DriveType=3"
+                foreach ($Volume in $Volumes) {
+
+                    $Size="{0:N2}" -f ($Volume.capacity/1GB)
+                    $Freespace="{0:N2}" -f ($Volume.Freespace/1GB)
+
+                    $VolumeHash = @{
+                        'FreeSpace(GB)' = $Freespace;
+                        'Drive' = $Volume.Name;
+                        'Size(GB)' = $Size;
+                    }
+                    $VolumeObject = New-Object -TypeName psobject -Property $VolumeHash
+                    $VolumesArray += $VolumeObject
+                }
+
+                $Services = Get-CimInstance -ClassName Win32_Service -ComputerName $Computer -Filter "State='Running'"
+                foreach ($Service in $Services) {
+                    $ProcessID = $Service.ProcessID
+                    $Process = Get-CimInstance -ClassName Win32_Process -ComputerName $Computer -Filter "ProcessId=$ProcessID"
+
+                    $ServiceHash = @{
+                        'ProcessName' = $Process.Name
+                        'ServiceName' = $Service.Name
+                        'DisplayName' = $Service.DisplayName
+                        'ThreadCount' = $Process.ThreadCount
+                        'VM' = $Process.VirtualSize
+                        'PeakPage' = $Process.PeakPageFileUsage
+                    }
+                    $ServiceObject = New-Object -TypeName psobject -Property $ServiceHash
+                    $ServicesArray += $ServiceObject
+                }
+
+                $Shares = Invoke-Command -ComputerName $Computer -ScriptBlock {Get-SmbShare}
+                foreach ($Share in $Shares) {
+                    $ShareHash = @{
+                        'Name' = $Share.Name;
+                        'Description' = $Share.Description;
+                        'Path' = $Share.Path
+                    }
+                    $ShareObject = New-Object -TypeName psobject -Property $ShareHash
+                    $SharesArray += $ShareObject
+                }
+
+                Try {
+                    $OSArchitectureStatus = $True
+                    Write-Verbose "Querying $Computer for OS architecture"
+                    $OSArchitecture = Get-CimInstance -ClassName Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar | Select-Object -ExpandProperty OSArchitecture
+                } Catch {
+                    $OSArchitectureStatus = $False
+                    Write-Warning "Querying $Computer for OS architecture FAILED"
+                    Write-Warning $ErrorVar.message
+                    If ($LogErrors) {
+                        $Computer | Out-File -FilePath $ErrorLog -Append
+                        $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
+                        Write-Warning "Logged to $ErrorLog"
+                    }
+                }
+                if ($OSArchitectureStatus) {
+                    if ($OSArchitecture.Substring(0,2) -eq 32) {
+                        Try {
+                            Write-Verbose "Querying $Computer x86"
+                            $Programs = Invoke-Command -ComputerName $Computer -ScriptBlock {Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* -ErrorAction Stop -ErrorVariable ErrorVar | Where-Object {$PSItem.DisplayName -gt $null}}
+                        } Catch {
+                            Write-Warning "$Computer FAILED"
+                            Write-Warning $ErrorVar.message
+                            If ($LogErrors) {
+                                $Computer | Out-File -FilePath $ErrorLog -Append
+                                $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
+                                Write-Warning "Logged to $ErrorLog"
+                            }
+                        }
+                    } else {
+                        Try {
+                            Write-Verbose "Querying $Computer x64"
+                            $Programs = Invoke-Command -ComputerName $Computer -ScriptBlock {Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* -ErrorAction Stop -ErrorVariable ErrorVar | Where-Object {$PSItem.DisplayName -gt $null}}
+                        } Catch {
+                            Write-Warning "$Computer FAILED"
+                            Write-Warning $ErrorVar.message
+                            If ($LogErrors) {
+                                $Computer | Out-File -FilePath $ErrorLog -Append
+                                $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
+                                Write-Warning "Logged to $ErrorLog"
+                            }
+                        }
+                    }
+                    foreach ($Program in $Programs) {
+                        $ProgramHash = @{
+                            'Name' = $Program.DisplayName;
+                            'Version' = $Program.DisplayVersion;
+                            'Publisher' = $Program.Publisher
+                        }
+                        $ProgramObject = New-Object -TypeName psobject -Property $ProgramHash
+                        $ProgramsArray += $ProgramObject
+                    }
+                }
+
+                $Adapters = Get-CimInstance -ClassName Win32_NetworkAdapterConfiguration -ComputerName $Computer | Where-Object {$PSItem.IPEnabled -eq 'True'}
+                foreach ($Adapter in $Adapters) {
+                    $AdapterHash = @{
+                        'Name' = $Adapter.Description;
+                        'DHCP Enabled' = $Adapter.DHCPEnabled;
+                        'MAC' = $Adapter.MACAddress;
+                        'IP' = $Adapter.IPAddress[0]
+                    }
+                    $AdapterObject = New-Object -TypeName psobject -Property $AdapterHash
+                    $AdaptersArray += $AdapterObject
+                }
+            }
+            $MainHash = @{
+                'ComputerName' = $Computer;
+                'OSVersion' = $SystemObject.OSVersion;
+                'SPVersion' = $SystemObject.SPVersion;
+                'BIOSSerial' = $SystemObject.BIOSSerial;
+                'Manufacturer' = $SystemObject.Manufacturer;
+                'Model' = $SystemObject.Model;
+                'AdminPassword' = $SystemObject.AdminPassword;
+                'Workgroup' = $SystemObject.Workgroup;
+                'Volumes' = $VolumesArray;
+                'Services' = $ServicesArray;
+                'Shares' = $SharesArray;
+                'Programs'= $ProgramsArray;
+                'Adapters' = $AdaptersArray;
+            }
+            $MainObject = New-Object -TypeName psobject -Property $MainHash
+            Write-Output $MainObject
+        }
+    }
+    END {}
+}
+
 #Variables
 Export-ModuleMember -Variable TTErrorLogPreference
 
@@ -976,6 +1250,7 @@ Export-ModuleMember -Function Restart-TTComputer
 Export-ModuleMember -Function Set-TTServicePassword
 Export-ModuleMember -Function Set-TTComputerState
 Export-ModuleMember -Function Get-TTNetworkInfo
+Export-ModuleMember -Function Get-TTInfo
 
 #Database Functions
 Export-ModuleMember -Function Get-TTDBData
