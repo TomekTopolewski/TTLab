@@ -1070,9 +1070,16 @@ Function Get-TTInfo {
             Try {
                 $Status = $True
                 $OS = Get-CimInstance -ClassName Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar
+                $Comp = Get-CimInstance -ClassName Win32_ComputerSystem -ComputerName $Computer
+                $Bios = Get-CimInstance -ClassName Win32_BIOS -ComputerName $Computer
+                $Volumes = Get-CimInstance -ClassName Win32_Volume -ComputerName $Computer -Filter "DriveType=3"
+                $Services = Get-CimInstance -ClassName Win32_Service -ComputerName $Computer -Filter "State='Running'"
+                $Shares = Invoke-Command -ComputerName $Computer -ScriptBlock {Get-SmbShare}
+                $Adapters = Get-CimInstance -ClassName Win32_NetworkAdapterConfiguration -ComputerName $Computer | Where-Object {$PSItem.IPEnabled -eq 'True'}
+                $OSArchitecture = Get-CimInstance -ClassName Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar | Select-Object -ExpandProperty OSArchitecture
             } Catch {
                 $Status = $False
-                Write-Warning "$Computer FAILED"
+                Write-Warning "One of the command send to the $Computer FAILED"
                 Write-Warning $ErrorVar.message
                 If ($LogErrors) {
                     $Computer | Out-File -FilePath $ErrorLog -Append
@@ -1086,8 +1093,6 @@ Function Get-TTInfo {
             $ProgramsArray = @()
             $AdaptersArray = @()
             If ($Status) {
-                $Comp = Get-CimInstance -ClassName Win32_ComputerSystem -ComputerName $Computer
-                $Bios = Get-CimInstance -ClassName Win32_BIOS -ComputerName $Computer
 
                 switch ($Comp.AdminPasswordStatus) {
                     1 {$AdminPassText = 'Disabled'}
@@ -1095,6 +1100,7 @@ Function Get-TTInfo {
                     3 {$AdminPassText = 'NA'}
                     4 {$AdminPassText = 'Unknown'}
                 }
+                
                 $SystemHash = @{
                     'OSVersion' = $OS.version;
                     'SPVersion' = $OS.servicepackmajorversion;
@@ -1106,7 +1112,6 @@ Function Get-TTInfo {
                 }
                 $SystemObject = New-Object -TypeName psobject -Property $SystemHash
 
-                $Volumes = Get-CimInstance -ClassName Win32_Volume -ComputerName $Computer -Filter "DriveType=3"
                 foreach ($Volume in $Volumes) {
 
                     $Size="{0:N2}" -f ($Volume.capacity/1GB)
@@ -1121,7 +1126,6 @@ Function Get-TTInfo {
                     $VolumesArray += $VolumeObject
                 }
 
-                $Services = Get-CimInstance -ClassName Win32_Service -ComputerName $Computer -Filter "State='Running'"
                 foreach ($Service in $Services) {
                     $ProcessID = $Service.ProcessID
                     $Process = Get-CimInstance -ClassName Win32_Process -ComputerName $Computer -Filter "ProcessId=$ProcessID"
@@ -1138,7 +1142,6 @@ Function Get-TTInfo {
                     $ServicesArray += $ServiceObject
                 }
 
-                $Shares = Invoke-Command -ComputerName $Computer -ScriptBlock {Get-SmbShare}
                 foreach ($Share in $Shares) {
                     $ShareHash = @{
                         'Name' = $Share.Name;
@@ -1149,60 +1152,22 @@ Function Get-TTInfo {
                     $SharesArray += $ShareObject
                 }
 
-                Try {
-                    $OSArchitectureStatus = $True
-                    Write-Verbose "Querying $Computer for OS architecture"
-                    $OSArchitecture = Get-CimInstance -ClassName Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar | Select-Object -ExpandProperty OSArchitecture
-                } Catch {
-                    $OSArchitectureStatus = $False
-                    Write-Warning "Querying $Computer for OS architecture FAILED"
-                    Write-Warning $ErrorVar.message
-                    If ($LogErrors) {
-                        $Computer | Out-File -FilePath $ErrorLog -Append
-                        $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
-                        Write-Warning "Logged to $ErrorLog"
-                    }
-                }
-                if ($OSArchitectureStatus) {
-                    if ($OSArchitecture.Substring(0,2) -eq 32) {
-                        Try {
-                            Write-Verbose "Querying $Computer x86"
-                            $Programs = Invoke-Command -ComputerName $Computer -ScriptBlock {Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* -ErrorAction Stop -ErrorVariable ErrorVar | Where-Object {$PSItem.DisplayName -gt $null}}
-                        } Catch {
-                            Write-Warning "$Computer FAILED"
-                            Write-Warning $ErrorVar.message
-                            If ($LogErrors) {
-                                $Computer | Out-File -FilePath $ErrorLog -Append
-                                $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
-                                Write-Warning "Logged to $ErrorLog"
-                            }
-                        }
-                    } else {
-                        Try {
-                            Write-Verbose "Querying $Computer x64"
-                            $Programs = Invoke-Command -ComputerName $Computer -ScriptBlock {Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* -ErrorAction Stop -ErrorVariable ErrorVar | Where-Object {$PSItem.DisplayName -gt $null}}
-                        } Catch {
-                            Write-Warning "$Computer FAILED"
-                            Write-Warning $ErrorVar.message
-                            If ($LogErrors) {
-                                $Computer | Out-File -FilePath $ErrorLog -Append
-                                $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
-                                Write-Warning "Logged to $ErrorLog"
-                            }
-                        }
-                    }
-                    foreach ($Program in $Programs) {
-                        $ProgramHash = @{
-                            'Name' = $Program.DisplayName;
-                            'Version' = $Program.DisplayVersion;
-                            'Publisher' = $Program.Publisher
-                        }
-                        $ProgramObject = New-Object -TypeName psobject -Property $ProgramHash
-                        $ProgramsArray += $ProgramObject
-                    }
+                if ($OSArchitecture.Substring(0,2) -eq 32) {
+                    $Programs = Invoke-Command -ComputerName $Computer -ScriptBlock {Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* -ErrorAction Stop -ErrorVariable ErrorVar | Where-Object {$PSItem.DisplayName -gt $null}}
+                } else {
+                    $Programs = Invoke-Command -ComputerName $Computer -ScriptBlock {Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* -ErrorAction Stop -ErrorVariable ErrorVar | Where-Object {$PSItem.DisplayName -gt $null}}
                 }
 
-                $Adapters = Get-CimInstance -ClassName Win32_NetworkAdapterConfiguration -ComputerName $Computer | Where-Object {$PSItem.IPEnabled -eq 'True'}
+                foreach ($Program in $Programs) {
+                    $ProgramHash = @{
+                        'Name' = $Program.DisplayName;
+                        'Version' = $Program.DisplayVersion;
+                        'Publisher' = $Program.Publisher
+                    }
+                    $ProgramObject = New-Object -TypeName psobject -Property $ProgramHash
+                    $ProgramsArray += $ProgramObject
+                }
+
                 foreach ($Adapter in $Adapters) {
                     $AdapterHash = @{
                         'Name' = $Adapter.Description;
@@ -1214,6 +1179,7 @@ Function Get-TTInfo {
                     $AdaptersArray += $AdapterObject
                 }
             }
+
             $MainHash = @{
                 'ComputerName' = $Computer;
                 'OSVersion' = $SystemObject.OSVersion;
