@@ -1202,6 +1202,91 @@ Function Get-TTInfo {
     END {}
 }
 
+Function Export-TTHTML {
+    [CmdletBinding(DefaultParameterSetName='Page',  RemotingCapability='None')]
+    Param (
+        [Parameter(ValueFromPipeline=$true)]
+        [psobject]
+        ${InputObject},
+
+        [Parameter(Position=0)]
+        [System.Object[]]
+        ${Property},
+
+        [Parameter(ParameterSetName='Page', Position=3)]
+        [string[]]
+        ${Body},
+
+        [Parameter(ParameterSetName='Page', Position=1)]
+        [string[]]
+        ${Head},
+
+        [Parameter(ParameterSetName='Page', Position=2)]
+        [ValidateNotNullOrEmpty()]
+        [string]
+        ${Title},
+
+        [ValidateNotNullOrEmpty()]
+        [ValidateSet('Table','List')]
+        [string]
+        ${As},
+
+        [Parameter(ParameterSetName='Page')]
+        [Alias('cu','uri')]
+        [ValidateNotNullOrEmpty()]
+        [uri]
+        ${CssUri},
+
+        [ValidateNotNullOrEmpty()]
+        [string[]]
+        ${PostContent},
+
+        [ValidateNotNullOrEmpty()]
+        [string[]]
+        ${PreContent},
+
+        [Parameter(Mandatory=$True)]
+        [ValidateNotNullOrEmpty()]
+        [string]
+        $FilePath
+    )
+
+
+    BEGIN {
+        Try {
+            $outBuffer = $null
+            if ($PSBoundParameters.TryGetValue('OutBuffer', [ref]$outBuffer))
+            {
+                $PSBoundParameters['OutBuffer'] = 1
+            }
+            $wrappedCmd = $ExecutionContext.InvokeCommand.GetCommand('Microsoft.PowerShell.Utility\ConvertTo-Html', [System.Management.Automation.CommandTypes]::Cmdlet)
+            $PSBoundParameters.Remove('FilePath') | Out-Null
+            $scriptCmd = {& $wrappedCmd @PSBoundParameters | Out-File $FilePath}
+            $steppablePipeline = $scriptCmd.GetSteppablePipeline($myInvocation.CommandOrigin)
+            $steppablePipeline.Begin($PSCmdlet)
+        } Catch {
+            Throw
+        }
+    }
+
+    PROCESS {
+        Try {
+            $steppablePipeline.Process($_)
+        } Catch {
+            Throw
+        }
+    }
+
+    END {
+        Try {
+            $steppablePipeline.End()
+        } Catch {
+            Throw
+        }
+}
+
+}
+
 #Variables
 Export-ModuleMember -Variable TTErrorLogPreference
 
@@ -1217,6 +1302,7 @@ Export-ModuleMember -Function Set-TTServicePassword
 Export-ModuleMember -Function Set-TTComputerState
 Export-ModuleMember -Function Get-TTNetworkInfo
 Export-ModuleMember -Function Get-TTInfo
+Export-ModuleMember -Function Export-TTHTML
 
 #Database Functions
 Export-ModuleMember -Function Get-TTDBData
