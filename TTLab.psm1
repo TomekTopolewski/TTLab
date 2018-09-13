@@ -1287,6 +1287,95 @@ Function Export-TTHTML {
 
 }
 
+Function Get-TTAdminPasswordAge {
+    <#
+    .SYNOPSIS
+    Gets information about active accounts on a local or remote machine.
+    .DESCRIPTION
+    The Get-TTAdminPasswordAge cmdlet gets information about active accounts on a local or remote machine. First, it gets names of members of Administrator group, then it use
+    this names to call for account object. Finally, using object's properties it calculates password age.
+    .PARAMETER ComputerName
+    Gets information from a local or remote machine.
+    .PARAMETER ErrorLog
+    Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
+    .PARAMETER LogErrors
+    Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+    .EXAMPLE
+    PS C:\WINDOWS\system32> Get-TTAdminPasswordAge -ComputerName $env:COMPUTERNAME
+    #>
+
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory = $True,
+                    ValueFromPipeline = $True,
+                    ValueFromPipelineByPropertyName = $True)]
+        [Alias("Hostname")]
+        [ValidateNotNullOrEmpty()]
+        [string[]]$ComputerName,
+
+        [string]$ErrorLog = $TTErrorLogPreference,
+
+        [switch]$LogErrors
+    )
+    BEGIN{
+        if ($LogErrors) {
+            Write-Verbose "Error log: $ErrorLog"
+            Try {
+                Remove-Item -Path $ErrorLog -ErrorAction Stop -ErrorVariable ErrorVar
+                Write-Warning "Previos log at $ErrorLog was removed"
+            } Catch {
+                Write-Warning $ErrorVar.message
+            }
+        } else {
+            Write-Verbose "Error log is off"
+        }
+    }
+
+    PROCESS{
+        foreach ($Computer in $ComputerName) {
+            Write-Verbose "Querying $Computer"
+            Try {
+                $Status = $True
+                $AdminAccountsNames = Invoke-Command -ComputerName $Computer -ScriptBlock {Get-LocalGroupMember -SID S-1-5-32-544 |
+                                        Where-Object {$PSItem.ObjectClass -eq 'User'} |
+                                        Select-Object -ExpandProperty Name} -ErrorAction Stop -ErrorVariable ErrorVar
+            } Catch {
+                $Status = $False
+                Write-Warning "Querying $Computer FAILED"
+                Write-Warning $ErrorVar.message
+                If ($LogErrors) {
+                    $Computer | Out-File -FilePath $ErrorLog -Append
+                    $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
+                    Write-Warning "Logged to $ErrorLog"
+                }
+            }
+
+            If ($Status) {
+                foreach($AdminAccountName in $AdminAccountsNames) {
+                    $Position = $AdminAccountName.IndexOf("\")
+                    $Name = $AdminAccountName.Substring($Position+1)
+
+                    $AdminAccount = Invoke-Command -ComputerName $Computer -ScriptBlock {Get-LocalUser | Where-Object {$PSItem.Enabled -eq "True" -and $PSItem.Name -eq $Name}}
+                    #$AdminAccount = Get-LocalUser | Where-Object {$PSItem.Enabled -eq "True" -and $PSItem.Name -eq $Name}
+                    
+                    $AdminPassLastSet = $AdminAccount | Select-Object -ExpandProperty PasswordLastSet
+                    $Today = Get-Date
+                    $PasswordAge = $Today - $AdminPassLastSet
+                    $Hash = @{
+                        'ComputerName' = $Computer;
+                        'AccountName' = $AdminAccount.Name;
+                        'PasswordAge' = $PasswordAge | Select-Object -ExpandProperty Days
+                    }
+
+                    $Object = New-Object -TypeName psobject -Property $Hash
+                    Write-Output $Object
+                }
+            }
+        }
+    }
+    END{}
+}
+
 #Variables
 Export-ModuleMember -Variable TTErrorLogPreference
 
@@ -1303,6 +1392,7 @@ Export-ModuleMember -Function Set-TTComputerState
 Export-ModuleMember -Function Get-TTNetworkInfo
 Export-ModuleMember -Function Get-TTInfo
 Export-ModuleMember -Function Export-TTHTML
+Export-ModuleMember -Function Get-TTAdminPasswordAge
 
 #Database Functions
 Export-ModuleMember -Function Get-TTDBData
