@@ -1356,18 +1356,19 @@ Function Get-TTAdminPasswordAge {
                     $Name = $AdminAccountName.Substring($Position+1)
 
                     $AdminAccount = Invoke-Command -ComputerName $Computer -ScriptBlock {Get-LocalUser | Where-Object {$PSItem.Enabled -eq "True" -and $PSItem.Name -eq $Using:Name}}
-                    
-                    $AdminPassLastSet = $AdminAccount | Select-Object -ExpandProperty PasswordLastSet
-                    $Today = Get-Date
-                    $PasswordAge = $Today - $AdminPassLastSet
-                    $Hash = @{
-                        'ComputerName' = $Computer;
-                        'AccountName' = $AdminAccount.Name;
-                        'PasswordAge' = $PasswordAge | Select-Object -ExpandProperty Days
-                    }
+                    if ($AdminAccount){
+                        $AdminPassLastSet = $AdminAccount | Select-Object -ExpandProperty PasswordLastSet
+                        $Today = Get-Date
+                        $PasswordAge = $Today - $AdminPassLastSet
+                        $Hash = @{
+                            'ComputerName' = $Computer;
+                            'AccountName' = $AdminAccount.Name;
+                            'PasswordAge' = $PasswordAge | Select-Object -ExpandProperty Days
+                        }
 
-                    $Object = New-Object -TypeName psobject -Property $Hash
-                    Write-Output $Object
+                        $Object = New-Object -TypeName psobject -Property $Hash
+                        Write-Output $Object
+                    }
                 }
             }
         }
