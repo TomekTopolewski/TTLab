@@ -161,7 +161,7 @@ Function Get-TTVolumeInfo {
 
                     $Hash = @{
                         'FreeSpace(GB)' = $Freespace;
-                        'ComputerName' = $Volume.SystemName;
+                        'ComputerName' = $Computer;
                         'Drive' = $Volume.Name;
                         'Size(GB)' = $Size;
                     }
@@ -1376,6 +1376,101 @@ Function Get-TTAdminPasswordAge {
     END{}
 }
 
+Function Get-TTEventLog {
+    <#
+    .SYNOPSIS
+    .DESCRIPTION
+    .PARAMETER ComputerName
+    Gets information from a local or remote machine.
+    .PARAMETER Path
+    .PARAMETER LogName
+    .PARAMETER ErrorLog
+    Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
+    .PARAMETER LogErrors
+    Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+    .EXAMPLE
+    #>
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory = $True,
+                    ValueFromPipeline = $True,
+                    ValueFromPipelineByPropertyName = $True)]
+        [Alias("Hostname")]
+        [ValidateNotNullOrEmpty()]
+        [string[]]$ComputerName,
+
+        [string]$ErrorLog = $TTErrorLogPreference,
+
+        [switch]$LogErrors,
+
+        [Parameter(Mandatory = $True)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Path,
+
+        [string]$LogName
+    )
+    BEGIN {
+        if ($LogErrors) {
+            Write-Verbose "Error log: $ErrorLog"
+            Try {
+                Remove-Item -Path $ErrorLog -ErrorAction Stop -ErrorVariable ErrorVar
+                Write-Warning "Previos log at $ErrorLog was removed"
+            } Catch {
+                Write-Warning $ErrorVar.message
+            }
+        } else {
+            Write-Verbose "Error log is off"
+        }
+    }
+    PROCESS {
+        foreach ($Computer in $ComputerName){
+            Write-Verbose "Querying $Computer"
+            Try {
+                $Status = $True
+                $EventLogs = Get-EventLog -ComputerName $Computer -LogName $LogName -ErrorAction Stop -ErrorVariable ErrorVar | Format-List -Property '*'
+            } Catch {
+                $Status = $False
+                Write-Warning "Querying $Computer FAILED"
+                Write-Warning $ErrorVar.message
+                If ($LogErrors) {
+                    $Computer | Out-File -FilePath $ErrorLog -Append
+                    $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
+                    Write-Warning "Logged to $ErrorLog"
+                }
+            }
+            If($Status) {
+                Try {
+                    $Status = $True
+                    $EventLogs | Out-File -FilePath $Path -Append -ErrorAction Stop -ErrorVariable ErrorVar
+                } Catch {
+                    $Status = $False
+                    Write-Warning $ErrorVar.message
+                    If ($LogErrors) {
+                        $Computer | Out-File -FilePath $ErrorLog -Append
+                        $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
+                        Write-Warning "Logged to $ErrorLog"
+                    }
+                }
+                If($Status){
+                    Try{
+                        $Status = $True
+                        Remove-EventLog -ComputerName $Computer -LogName $LogName -ErrorAction Stop -ErrorVariable ErrorVar
+                    } Catch{
+                        $Status = $False
+                        Write-Warning $ErrorVar.message
+                        If ($LogErrors) {
+                            $Computer | Out-File -FilePath $ErrorLog -Append
+                            $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
+                            Write-Warning "Logged to $ErrorLog"
+                        }
+                    }
+                }
+            }
+        }
+    }
+    END {}
+}
+
 #Variables
 Export-ModuleMember -Variable TTErrorLogPreference
 
@@ -1393,6 +1488,7 @@ Export-ModuleMember -Function Get-TTNetworkInfo
 Export-ModuleMember -Function Get-TTInfo
 Export-ModuleMember -Function Export-TTHTML
 Export-ModuleMember -Function Get-TTAdminPasswordAge
+Export-ModuleMember -Function Get-TTEventLog
 
 #Database Functions
 Export-ModuleMember -Function Get-TTDBData
