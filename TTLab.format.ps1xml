@@ -242,6 +242,34 @@
                     </ListEntry>
                 </ListEntries>
             </ListControl>
-        </View>                       
+        </View>
+        <View>
+            <Name>TTLab.Uptime</Name>
+            <ViewSelectedBy>
+                <TypeName>TTLab.Uptime</TypeName>
+            </ViewSelectedBy>
+            <TableControl>
+                <TableHeaders>
+                    <TableColumnHeader/>
+                    <TableColumnHeader/>
+                    <TableColumnHeader/>
+                </TableHeaders>
+                <TableRowEntries>
+                    <TableRowEntry>
+                        <TableColumnItems>
+                            <TableColumnItem>
+                                <PropertyName>ComputerName</PropertyName>
+                            </TableColumnItem>
+                            <TableColumnItem>
+                                <PropertyName>LastBootUpTime</PropertyName>
+                            </TableColumnItem>
+                            <TableColumnItem>
+                                <PropertyName>Uptime</PropertyName>
+                            </TableColumnItem>                           
+                        </TableColumnItems>
+                    </TableRowEntry>
+                 </TableRowEntries>
+            </TableControl>
+        </View>
     </ViewDefinitions>
 </Configuration>

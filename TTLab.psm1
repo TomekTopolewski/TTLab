@@ -1554,8 +1554,9 @@ Function Get-TTUptime{
                     'LastBootUpTime' = $LastBootUpTime;
                     'Uptime' = $UptimeString;
                 }
-                $MainObject = New-Object -TypeName psobject -Property $Hash
-                Write-Output $MainObject
+                $Object = New-Object -TypeName psobject -Property $Hash
+                $Object.PSObject.TypeNames.Insert(0,'TTLab.Uptime')
+                Write-Output $Object
             }
         }
     }
