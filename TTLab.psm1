@@ -1379,16 +1379,21 @@ Function Get-TTAdminPasswordAge {
 Function Get-TTEventLog {
     <#
     .SYNOPSIS
+    Gets specified event logs and writes it into a file.
     .DESCRIPTION
+    The Get-TTEventlog cmdlet gets specified event log, writes it into a file and then remove it from the machine.
     .PARAMETER ComputerName
     Gets information from a local or remote machine.
     .PARAMETER Path
+    Specifies a path where the event log will be stored. By default, it is C:\EventLog.txt.
     .PARAMETER LogName
+    Gets the log provided with this parameter.
     .PARAMETER ErrorLog
     Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
     .PARAMETER LogErrors
     Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
     .EXAMPLE
+    Get-TTEventLog -ComputerName $env:COMPUTERNAME -LogName Application -Path 'C:\Users\User\Desktop\log.txt'
     #>
     [CmdletBinding()]
     Param (
@@ -1471,6 +1476,92 @@ Function Get-TTEventLog {
     END {}
 }
 
+Function Get-TTUptime{
+    <#
+    .SYNOPSIS
+    Gets information about last boot up time and uptime from a local or remote machine.
+    .DESCRIPTION
+    The Get-TTUptime cmdlet gets information about last boot up time and uptime from a local or remote machine.
+    .PARAMETER ComputerName
+    Gets information from a local or remote machine.
+    .PARAMETER ErrorLog
+    Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
+    .PARAMETER LogErrors
+    Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+    .EXAMPLE
+    PS C:\Windows\system32> Get-TTUptime -ComputerName $env:COMPUTERNAME, localhost
+
+    ComputerName    Uptime     LastBootUpTime     
+    ------------    ------     --------------     
+    DESKTOP-VV4Q3OE 2d:19h:16m 22/09/2018 14:39:27
+    localhost       2d:19h:16m 22/09/2018 14:39:27
+
+    #>
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory = $True,
+                    ValueFromPipeline = $True,
+                    ValueFromPipelineByPropertyName = $True)]
+        [Alias("Hostname")]
+        [ValidateNotNullOrEmpty()]
+        [string[]]$ComputerName,
+
+        [string]$ErrorLog = $TTErrorLogPreference,
+
+        [switch]$LogErrors
+    )
+    BEGIN{
+        if ($LogErrors) {
+            Write-Verbose "Error log: $ErrorLog"
+            Try {
+                Remove-Item -Path $ErrorLog -ErrorAction Stop -ErrorVariable ErrorVar
+                Write-Warning "Previos log at $ErrorLog was removed"
+            } Catch {
+                Write-Warning $ErrorVar.message
+            }
+        } else {
+            Write-Verbose "Error log is off"
+        }
+    }
+    PROCESS{
+        foreach($Computer in $ComputerName){
+            Write-Verbose "Querying $Computer"
+            Try{
+                $Status = $True
+                $LastBootUpTime = Get-CimInstance -ClassName Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar | 
+                                                                                                            Select-Object -ExpandProperty LastBootUpTime
+                $Today = Get-Date
+            } Catch{
+                $Status = $False
+                Write-Warning "Querying $Computer FAILED"
+                Write-Warning $ErrorVar.message
+                If ($LogErrors) {
+                    $Computer | Out-File -FilePath $ErrorLog -Append
+                    $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
+                    Write-Warning "Logged to $ErrorLog"
+                }
+            }
+            if($Status){
+                $Uptime = $Today - $LastBootUpTime
+
+                $Days = $Uptime.Days
+                $Hours = $Uptime.Hours
+                $Minutes = $Uptime.Minutes
+                $UptimeString = "$Days`d:$Hours`h:$Minutes`m"
+
+                $Hash = @{
+                    'ComputerName' = $Computer;
+                    'LastBootUpTime' = $LastBootUpTime;
+                    'Uptime' = $UptimeString;
+                }
+                $MainObject = New-Object -TypeName psobject -Property $Hash
+                Write-Output $MainObject
+            }
+        }
+    }
+    END{}
+}
+
 #Variables
 Export-ModuleMember -Variable TTErrorLogPreference
 
@@ -1489,6 +1580,7 @@ Export-ModuleMember -Function Get-TTInfo
 Export-ModuleMember -Function Export-TTHTML
 Export-ModuleMember -Function Get-TTAdminPasswordAge
 Export-ModuleMember -Function Get-TTEventLog
+Export-ModuleMember -Function Get-TTUptime
 
 #Database Functions
 Export-ModuleMember -Function Get-TTDBData
