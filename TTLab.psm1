@@ -1,80 +1,90 @@
-﻿$TTErrorLogPreference = 'C:\Error.txt'
+﻿$DefaultErrorLogPath = 'C:\Error.txt'
 
 Function Get-TTSystemInfo {
     <#
     .SYNOPSIS
-        Gets information about hardware and software from a local or remote machine.
+
+    Gets information about hardware and software from a local or remote machine.
+
     .DESCRIPTION
-        The Get-TTSystemInfo cmdlet uses WMI classes (Win32_OperatingSYstem and Win32_ComputerSystem) to gather information about hardware and software from a local or remote computer.
+
+    The Get-TTSystemInfo cmdlet uses WMI classes (Win32_OperatingSystem and Win32_ComputerSystem) to gather information about hardware and software 
+    from a local or remote computers.
+    
     .PARAMETER ComputerName
-        Gets the information about hardware and software from the specified computers, up to ten machines are allowed.
-    .PARAMETER ErrorLog
-        Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
-    .PARAMETER LogErrors
-        Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+
+    Run cmdlet on the specified computers.
+
+    .PARAMETER ErrorLogPath
+
+    Specifies the path where the error log will be writed. By default, it is C:\Error.txt.
+
+    .PARAMETER LogError
+
+    Indicates that this cmdlet will log errors. The path to the error log is specified by the -ErrorLogPath parameter.
+
     .PARAMETER WMIQuery
-    It is a switch parameter that indicates that Get-WMIObject will be used insted of Get-CIMInstance.
+
+    The switch parameter that indicates that Get-WMIObject will be used insted of Get-CIMInstance.
+
     .EXAMPLE
-        Get-Content U:\Temp\Computers.txt | Get-TTSystemInfo -Verbose
+
+    Get-Content U:\Temp\Computers.txt | Get-TTSystemInfo -Verbose
+
     .EXAMPLE
-        Get-TTSystemInfo -ComputerName localhost -ErrorLog C:\ErrorLog.txt
+
+    Get-TTSystemInfo -ComputerName localhost -ErrorLog C:\ErrorLog.txt
     #>
     [CmdletBinding()]
-    Param (
+    Param(
         [Parameter(Mandatory=$True,
                     ValueFromPipeline=$True,
-                    ValueFromPipelineByPropertyName = $True,
-                    HelpMessage="Computer name or IP address")]
-        [Alias('Hostname')]
-        [ValidateCount(1,10)]
+                    ValueFromPipelineByPropertyName = $True)]
         [ValidateNotNullOrEmpty()]
-        [string[]]$ComputerName,
+        [string[]] $ComputerName,
 
-        [string]$ErrorLog = $TTErrorLogPreference,
+        [string] $ErrorLogPath = $DefaultErrorLogPath,
 
-        [switch]$LogErrors,
+        [switch] $LogError,
 
-        [switch]$WMIQuery
+        [switch] $WMIQuery
     )
     BEGIN {
-        if ($LogErrors) {
-            Write-Verbose "Error log: $ErrorLog"
-            Try {
-                Remove-Item -Path $ErrorLog -ErrorAction Stop -ErrorVariable ErrorVar
-                Write-Warning "Previos log at $ErrorLog was removed"
-            } Catch {
+        if ($LogError) {
+            try {
+                Remove-Item -Path $ErrorLogPath -ErrorAction Stop -ErrorVariable ErrorVar
+                Write-Warning "Previos log at $ErrorLogPath was removed"
+            } catch {
                 Write-Warning $ErrorVar.message
             }
-        } else {
-            Write-Verbose "Error log is off"
         }
     }
     PROCESS {
         foreach ($Computer in $ComputerName) {
             Write-Verbose "Querying $Computer"
-            Try {
-                $ErrorStatus = $True
-                if($WMIQuery){
+            try {
+                $Status = $True
+                if ($WMIQuery) {
                     $OS = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar
-                } else{
+                    $LastBootUpTime = $OS.ConvertToDateTime($OS.LastBootUpTime)
+                } else {
                     $OS = Get-CimInstance -ClassName Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar
+                    $LastBootUpTime = $OS.LastBootUpTime
                 }
-            } Catch {
-                $ErrorStatus = $False
-                Write-Warning "$Computer FAILED"
+            } catch {
+                $Status = $False
                 Write-Warning $ErrorVar.message
-                If ($LogErrors) {
-                    $Computer | Out-File -FilePath $ErrorLog -Append
-                    $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
-                    Write-Warning "Logged to $ErrorLog"
+                if ($LogError) {
+                    $Computer | Out-File -FilePath $ErrorLogPath -Append
+                    $ErrorVar.message | Out-File -FilePath $ErrorLogPath -Append
                 }
             }
 
-            if ($ErrorStatus) {
-                if($WMIQuery){
+            if ($Status) {
+                if ($WMIQuery) {
                     $Comp = Get-WmiObject -Class Win32_ComputerSystem -ComputerName $Computer
                     $Bios = Get-WmiObject -Class Win32_BIOS -ComputerName $Computer
-                } else{
+                } else {
                     $Comp = Get-CimInstance -ClassName Win32_ComputerSystem -ComputerName $Computer
                     $Bios = Get-CimInstance -ClassName Win32_BIOS -ComputerName $Computer
                 }
@@ -84,7 +94,7 @@ Function Get-TTSystemInfo {
                     3 {$AdminPassText = 'NA'}
                     4 {$AdminPassText = 'Unknown'}
                 }
-                $Props = @{
+                $Hash = @{
                     'ComputerName' = $Computer;
                     'OSVersion' = $OS.version;
                     'SPVersion' = $OS.servicepackmajorversion;
@@ -93,9 +103,10 @@ Function Get-TTSystemInfo {
                     'Model' = $Comp.model;
                     'AdminPassword' = $AdminPassText;
                     'Workgroup' = $Comp.workgroup
+                    'LastBootTime' = $LastBootUpTime
+                    'OSType' = $OS.caption
                 }
-                Write-Verbose "WMI queries completed"
-                $Object = New-Object -TypeName psobject -Property $Props
+                $Object = New-Object -TypeName psobject -Property $Hash
                 $Object.PSObject.TypeNames.Insert(0,'TTLab.SystemInfo')
                 Write-Output $Object
             }
@@ -107,73 +118,80 @@ Function Get-TTSystemInfo {
 Function Get-TTVolumeInfo {
     <#
     .SYNOPSIS
-        Gets information about drives from a local or remote computer.
+
+    Gets information about drives from a local or remote computers.
+
     .DESCRIPTION
-        The Get-TTVolumeInfo cmdlet uses the Win32_Volume class to gather information about drives from a local or remote computer.
+
+    The Get-TTVolumeInfo cmdlet uses the Win32_Volume class to gather information about drives from a local or remote computers.
+
     .PARAMETER ComputerName
-        Gets the information about volumes from the specified computers, up to ten machines are allowed.
-    .PARAMETER ErrorLog
-        Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
-    .PARAMETER LogErrors
-        Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+
+    Run cmdlet on the specified computers.
+
+    .PARAMETER ErrorLogPath
+
+    Specifies the path where the error log will be writed. By default, it is C:\Error.txt.
+
+    .PARAMETER LogError
+
+    Indicates that this cmdlet will log errors. The path to the error log is specified by the -ErrorLog parameter.
+
     .PARAMETER WMIQuery
-    It is a switch parameter that indicates that Get-WMIObject will be used insted of Get-CIMInstance.
+
+    The switch parameter that indicates that Get-WMIObject will be used insted of Get-CIMInstance.
+
     .EXAMPLE
-        Get-Content U:\Temp\Computers.txt | Get-TTVolumeInfo -Verbose
+
+    Get-Content U:\Temp\Computers.txt | Get-TTVolumeInfo -Verbose
+
     .EXAMPLE
-        Get-TTVolumeInfo -ComputerName localhost -ErrorLog C:\ErrorLog.txt
+
+    Get-TTVolumeInfo -ComputerName localhost -ErrorLog C:\ErrorLog.txt
     #>
     [CmdletBinding()]
     Param (
         [Parameter(Mandatory=$True,
                     ValueFromPipeline=$True,
-                    ValueFromPipelineByPropertyName = $True,
-                    HelpMessage="Computer name or IP address")]
-        [Alias('Hostname')]
-        [ValidateCount(1,10)]
+                    ValueFromPipelineByPropertyName = $True)]
         [ValidateNotNullOrEmpty()]
-        [string[]]$ComputerName,
+        [string[]] $ComputerName,
 
-        [string]$ErrorLog = $TTErrorLogPreference,
+        [string] $ErrorLogPath = $DefaultErrorLogPath,
 
-        [switch]$LogErrors,
+        [switch] $LogError,
 
-        [switch]$WMIQuery
+        [switch] $WMIQuery
     )
     BEGIN {
-        if ($LogErrors) {
-            Write-Verbose "Error log: $ErrorLog"
-            Try {
-                Remove-Item -Path $ErrorLog -ErrorAction Stop -ErrorVariable ErrorVar
-                Write-Warning "Previos log at $ErrorLog was removed"
-            } Catch {
+        if ($LogError) {
+            try {
+                Remove-Item -Path $ErrorLogPath -ErrorAction Stop -ErrorVariable ErrorVar
+                Write-Warning "Previos log at $ErrorLogPath was removed"
+            } catch {
                 Write-Warning $ErrorVar.message
             }
-        } else {
-            Write-Verbose "Error log is off"
         }
     }
     PROCESS {
         foreach ($Computer in $ComputerName) {
             Write-Verbose "Querying $Computer"
-            Try {
-                $ErrorStatus = $True
-                if($WMIQuery){
+            try {
+                $Status = $True
+                if ($WMIQuery) {
                     $Volumes = Get-WmiObject -Class Win32_Volume -ComputerName $Computer -Filter "DriveType=3" -ErrorAction Stop -ErrorVariable ErrorVar
-                } else{
+                } else {
                     $Volumes = Get-CimInstance -ClassName Win32_Volume -ComputerName $Computer -Filter "DriveType=3" -ErrorAction Stop -ErrorVariable ErrorVar
                 }
-            } Catch {
-                Write-Warning "$Computer FAILED"
+            } catch {
                 Write-Warning $ErrorVar.message
-                $ErrorStatus = $False
-                If ($LogErrors) {
-                    $Computer | Out-File -FilePath $ErrorLog -Append
-                    $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
-                    Write-Warning "Logged to $ErrorLog"
+                $Status = $False
+                if ($LogError) {
+                    $Computer | Out-File -FilePath $ErrorLogPath -Append
+                    $ErrorVar.message | Out-File -FilePath $ErrorLogPath -Append
                 }
             }
-            if ($ErrorStatus) {
+            if ($Status) {
                 foreach ($Volume in $Volumes) {
 
                     $Size="{0:N2}" -f ($Volume.capacity/1GB)
@@ -185,7 +203,6 @@ Function Get-TTVolumeInfo {
                         'Drive' = $Volume.Name;
                         'Size(GB)' = $Size;
                     }
-                    Write-Verbose "WMI queries completed"
                     $Object = New-Object -TypeName psobject -Property $Hash
                     $Object.PSObject.TypeNames.Insert(0,'TTLab.VolumeInfo')
                     Write-Output $Object
@@ -199,78 +216,85 @@ Function Get-TTVolumeInfo {
 Function Get-TTServiceInfo {
     <#
     .SYNOPSIS
-        Gets information about services from a local or remote computer.
+
+    Gets information about services from a local or remote computers.
+
     .DESCRIPTION
-        The Get-TTServiceInfo cmdlet uses WMI classes (Win32_Service and Win32_Process) to gather information about services from a local or remote computer.
+
+    The Get-TTServiceInfo cmdlet uses WMI classes (Win32_Service and Win32_Process) to gather information about services from a local or remote computers.
+
     .PARAMETER ComputerName
-        Gets the information about services from the specified computers, up to ten machines are allowed.
-    .PARAMETER ErrorLog
-        Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
-    .PARAMETER LogErrors
-        Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+
+    Run cmdlet on the specified computers.
+
+    .PARAMETER ErrorLogPath
+
+    Specifies the path where the error log will be writed. By default, it is C:\Error.txt.
+
+    .PARAMETER LogError
+
+    Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+
     .PARAMETER WMIQuery
-    It is a switch parameter that indicates that Get-WMIObject will be used insted of Get-CIMInstance.
+
+    The switch parameter that indicates that Get-WMIObject will be used insted of Get-CIMInstance.
+
     .EXAMPLE
-        Get-Content U:\Temp\Computers.txt | Get-TTServiceInfo -Verbose
+
+    Get-Content U:\Temp\Computers.txt | Get-TTServiceInfo -Verbose
+
     .EXAMPLE
-        Get-TTServiceInfo -ComputerName localhost -ErrorLog C:\ErrorLog.txt
+
+    Get-TTServiceInfo -ComputerName localhost -ErrorLog C:\ErrorLog.txt
     #>
     [CmdletBinding()]
     Param (
         [Parameter(Mandatory=$True,
                     ValueFromPipeline=$True,
-                    ValueFromPipelineByPropertyName=$True,
-                    HelpMessage="Computer name or IP address")]
-        [Alias('Hostname')]
-        [ValidateCount(1,10)]
+                    ValueFromPipelineByPropertyName=$True)]
         [ValidateNotNullOrEmpty()]
-        [string[]]$ComputerName,
+        [string[]] $ComputerName,
 
-        [string]$ErrorLog = $TTErrorLogPreference,
+        [string] $ErrorLogPath = $DefaultErrorLogPath,
 
-        [switch]$LogErrors,
+        [switch] $LogError,
 
-        [switch]$WMIQuery
+        [switch] $WMIQuery
     )
     BEGIN {
-        if ($LogErrors) {
-            Write-Verbose "Error log: $ErrorLog"
-            Try {
-                Remove-Item -Path $ErrorLog -ErrorAction Stop -ErrorVariable ErrorVar
-                Write-Warning "Previos log at $ErrorLog was removed"
-            } Catch {
+        if ($LogError) {
+            try {
+                Remove-Item -Path $ErrorLogPath -ErrorAction Stop -ErrorVariable ErrorVar
+                Write-Warning "Previos log at $ErrorLogPath was removed"
+            } catch {
                 Write-Warning $ErrorVar.message
             }
-        } else {
-            Write-Verbose "Error log is off"
         }
     }
     PROCESS {
         foreach ($Computer in $ComputerName) {
             Write-Verbose "Querying $Computer"
-            Try {
-                $ErrorStatus = $True
-                if($WMIQuery){
+            try {
+                $Status = $True
+                if ($WMIQuery) {
                     $Services = Get-WmiObject -Class Win32_Service -ComputerName $Computer -Filter "State='Running'" -ErrorAction Stop -ErrorVariable ErrorVar
-                } else{
+                } else {
                     $Services = Get-CimInstance -ClassName Win32_Service -ComputerName $Computer -Filter "State='Running'" -ErrorAction Stop -ErrorVariable ErrorVar
                 }
-            } Catch {
-                $ErrorStatus = $False
-                Write-Warning "$Computer FAILED"
+            } catch {
+                $Status = $False
                 Write-Warning $ErrorVar.message
-                If ($LogErrors) {
-                    $Computer | Out-File -FilePath $ErrorLog -Append
-                    $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
-                    Write-Warning "Logged to $ErrorLog"
+                if ($LogError) {
+                    $Computer | Out-File -FilePath $ErrorLogPath -Append
+                    $ErrorVar.message | Out-File -FilePath $ErrorLogPath -Append
                 }
             }
-            if ($ErrorStatus) {
+            if ($Status) {
                 foreach ($Service in $Services) {
                     $ProcessID = $Service.ProcessID
-                    if($WMIQuery){
+                    if ($WMIQuery) {
                         $Process = Get-WmiObject -Class Win32_Process -ComputerName $Computer -Filter "ProcessId=$ProcessID"
-                    } else{
+                    } else {
                         $Process = Get-CimInstance -ClassName Win32_Process -ComputerName $Computer -Filter "ProcessId=$ProcessID"
                     }
 
@@ -283,7 +307,6 @@ Function Get-TTServiceInfo {
                         'VM' = $Process.VirtualSize
                         'PeakPage' = $Process.PeakPageFileUsage
                     }
-                    Write-Verbose "WMI queries completed"
                     $Object = New-Object -TypeName psobject -Property $Hash
                     $Object.PSObject.TypeNames.Insert(0,'TTLab.ServiceInfo')
                     Write-Output $Object
@@ -294,116 +317,31 @@ Function Get-TTServiceInfo {
     END {}
 }
 
-Function Get-TTSystemInfo2 {
-    <#
-    .SYNOPSIS
-        Gets information about hardware and software from a local or remote computer.
-    .DESCRIPTION
-        The Get-TTSystenInfo cmdlet uses WMI classes (Win32_OperatingSystem and Win32_ComputerSystem) to gather information about hardware and software from a local or remote computer.
-    .PARAMETER ComputerName
-        Gets the information about hardware and software from the specified computers, up to ten machines are allowed.
-    .PARAMETER ErrorLog
-        Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
-    .PARAMETER LogErrors
-        Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
-    .PARAMETER WMIQuery
-    It is a switch parameter that indicates that Get-WMIObject will be used insted of Get-CIMInstance.
-    .EXAMPLE
-        Get-Content U:\Temp\Computers.txt | Get-TTSystemInfo2 -Verbose
-    .EXAMPLE
-        Get-TTSystemInfo2 -ComputerName localhost -ErrorLog C:\ErrorLog.txt
-    #>
-    [CmdletBinding()]
-    Param (
-        [Parameter(Mandatory=$True,
-                    ValueFromPipeline=$True,
-                    ValueFromPipelineByPropertyName=$True,
-                    HelpMessage="Computer name or IP address")]
-        [Alias('Hostname')]
-        [ValidateCount(1,10)]
-        [ValidateNotNullOrEmpty()]
-        [string[]]$ComputerName,
-
-        [string]$ErrorLog = $TTErrorLogPreference,
-
-        [switch]$LogErrors,
-
-        [switch]$WMIQuery
-    )
-    BEGIN {
-            if ($LogErrors) {
-                Write-Verbose "Error log: $ErrorLog"
-                Try {
-                    Remove-Item -Path $ErrorLog -ErrorAction Stop -ErrorVariable ErrorVar
-                    Write-Warning "Previos log at $ErrorLog was removed"
-                } Catch {
-                    Write-Warning $ErrorVar.message
-                }
-            } else {
-                Write-Verbose "Error log is off"
-            }
-    }
-    PROCESS {
-        foreach ($Computer in $ComputerName) {
-            Write-Verbose "Quering $Computer"
-            Try {
-                $ErrorStatus = $True
-                if($WMIQuery){
-                    $Win32_OS = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar
-                } else{
-                    $Win32_OS = Get-CimInstance -ClassName Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar
-                }
-            } Catch {
-                $ErrorStatus = $False
-                Write-Warning "$Computer FAILED"
-                Write-Warning $ErrorVar.message
-                if ($LogErrors) {
-                    $Computer | Out-File -FilePath $ErrorLog -Append
-                    $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
-                    Write-Warning "Logged to $ErrorLog"
-                }
-            }
-
-            if ($ErrorStatus) {
-                if($WMIQuery){
-                    $Win32_CS = Get-WmiObject -Class Win32_ComputerSystem -ComputerName $Computer
-                    $LastBootUpTime = $Win32_OS.ConvertToDateTime($Win32_OS.LastBootUpTime)
-                } else{
-                    $Win32_CS = Get-CimInstance -ClassName Win32_ComputerSystem -ComputerName $Computer
-                    $LastBootUpTime = $Win32_OS.LastBootUpTime
-                }
-                $Hash = @{
-                    OSType = $Win32_OS.Caption
-                    ComputerName = $Win32_OS.PSComputerName
-                    LastBootTime = $LastBootUpTime
-                    Manufacturer = $Win32_CS.Manufacturer
-                    Model = $Win32_CS.Model
-                }
-                Write-Verbose "WMI queries completed"
-                $Object = New-Object -TypeName PSobject -Property $Hash
-                $Object.PSObject.TypeNames.Insert(0,'TTLab.SystemInfo2')
-                Write-Output $Object
-            }
-        }
-    }
-    END {}
-}
-
 Function Get-TTDBData {
     <#
     .SYNOPSIS
-        Gets data from a database.
-    .DESCRIPTION
-        The Get-TTDBData cmdlet is used to queries information from a database.
 
+        Gets data from a database.
+
+    .DESCRIPTION
+
+        The Get-TTDBData cmdlet is used to queries information from a database.
         It is prepared to work with MS databases and others which supports OLEDB connection.
+
     .PARAMETER ConnectionString
+
         Specifies the connection string which should contain information how to connect to a database.
+
     .PARAMETER Query
+
         Specifies the actual SQL language query that will run.
+
     .PARAMETER IsSQLServer
+
         Indicates that we will query MS-SQL Server database.
+
     .EXAMPLE
+
         $ConnectionString = "server=localhost\SQLEXPRESS;database=inventory;trusted_connection=$True"
 
         $Query = "SELECT Something FROM Somewhere WHERE Something = Something"
@@ -412,11 +350,11 @@ Function Get-TTDBData {
     #>
     [CmdletBinding()]
     Param (
-        [string]$ConnectionString,
+        [string] $ConnectionString,
 
-        [string]$Query,
+        [string] $Query,
 
-        [switch]$IsSQLServer
+        [switch] $IsSQLServer
     )
 
     if ($IsSQLServer) {
@@ -448,18 +386,28 @@ Function Get-TTDBData {
 Function Invoke-TTDBData {
     <#
     .SYNOPSIS
-        Write data to a database.
-    .DESCRIPTION
-        The Invoke-TTDBData cmdlet is used to write data to a database.
 
+        Write data to a database.
+
+    .DESCRIPTION
+
+        The Invoke-TTDBData cmdlet is used to write data to a database.
         It is prepared to work with MS databases and others which supports OLEDB connection.
+
     .PARAMETER ConnectionString
+
         Specifies the connection string which should contain information how to connect to a database.
+
     .PARAMETER Query
+
         Specifies the actual SQL language query that will run.
+
     .PARAMETER IsSQLServer
+
         Indicates that we will query MS-SQL Server database.
+
     .EXAMPLE
+
         $ConnectionString = "server=localhost\SQLEXPRESS;database=inventory;trusted_connection=$True"
 
         $Query = "UPDATE Database SET Columns = Something, Columns = Something"
@@ -468,11 +416,11 @@ Function Invoke-TTDBData {
     #>
     [CmdletBinding(SupportsShouldProcess = $True, ConfirmImpact = 'Low')]
     Param (
-        [string]$ConnectionString,
+        [string] $ConnectionString,
 
-        [string]$Query,
+        [string] $Query,
 
-        [switch]$IsSQLServer
+        [switch] $IsSQLServer
     )
 
     if ($IsSQLServer) {
@@ -496,66 +444,70 @@ Function Invoke-TTDBData {
     }
 }
 
-Function Get-TTRemoteSMBShare {
+Function Get-TTSMBShare {
     <#
     .SYNOPSIS
-    Gets a list of SMB shares on a local or remote computer.
+
+    Gets a list of SMB shares on a local or remote computers.
+
     .DESCRIPTION
-    The Get-TTRemoteSMBShare cmdlet gets a list of SMB shares on a local or remote computer.
-    It uses an Invoke-Command query to connect to a machine.
+
+    The Get-TTSMBShare cmdlet gets a list of SMB shares on a local or remote computers.
+
     .PARAMETER ComputerName
-    Gets the information about SMB shares from the specified computers, up to 5 machines are allowed.
-    .PARAMETER ErrorLog
-    Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
-    .PARAMETER LogErrors
+
+    Run cmdlet on the specified computers.
+
+    .PARAMETER ErrorLogPath
+
+    Specifies the path where the error log will be writed. By default, it is C:\Error.txt.
+
+    .PARAMETER LogError
+
     Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+
     .EXAMPLE
-    Get-TTRemoteSMBShare -ComputerName localhost, localhost
+
+    Get-TTSMBShare -ComputerName localhost, $env:COMPUTERNAME
+
     .EXAMPLE
-    Get-Content C:\PowerShellOutput\localhost.txt | Get-TTRemoteSMBShare
+
+    Get-Content C:\PowerShellOutput\localhost.txt | Get-TTSMBShare
     #>
     [CmdletBinding()]
     Param (
         [Parameter(Mandatory=$True,
         ValueFromPipeline=$True,
-        ValueFromPipelineByPropertyName=$True,
-        HelpMessage="Computer name")]
-        [Alias('Hostname')]
-        [ValidateCount(1,5)]
+        ValueFromPipelineByPropertyName=$True)]
         [ValidateNotNullOrEmpty()]
-        [string[]]$ComputerName,
+        [string[]] $ComputerName,
 
-        [string]$ErrorLog = $TTErrorLogPreference,
+        [string] $ErrorLogPath = $DefaultErrorLogPath,
 
-        [switch]$LogErrors
+        [switch] $LogError
     )
     BEGIN {
-        if ($LogErrors) {
-            Write-Verbose "Error log: $ErrorLog"
-            Try {
-                Remove-Item -Path $ErrorLog -ErrorAction Stop -ErrorVariable ErrorVar
-                Write-Warning "Previos log at $ErrorLog was removed"
-            } Catch {
+        if ($LogError) {
+            try {
+                Remove-Item -Path $ErrorLogPath -ErrorAction Stop -ErrorVariable ErrorVar
+                Write-Warning "Previos log at $ErrorLogPath was removed"
+            } catch {
                 Write-Warning $ErrorVar.message
             }
-        } else {
-            Write-Verbose "Error log is off"
         }
     }
     PROCESS {
         foreach ($Computer in $ComputerName) {
-            Try {
+            try {
                 $Status = $True
                 Write-Verbose "Querying $Computer"
                 $Shares = Invoke-Command -ComputerName $Computer -ScriptBlock {Get-SmbShare} -ErrorAction Stop -ErrorVariable ErrorVar
-            } Catch {
+            } catch {
                 $Status = $False
-                Write-Warning "$Computer FAILED"
                 Write-Warning $ErrorVar.message
-                If ($LogErrors) {
-                    $Computer | Out-File -FilePath $ErrorLog -Append
-                    $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
-                    Write-Warning "Logged to $ErrorLog"
+                if ($LogError) {
+                    $Computer | Out-File -FilePath $ErrorLogPath -Append
+                    $ErrorVar.message | Out-File -FilePath $ErrorLogPath -Append
                 }
             }
             if ($Status) {
@@ -566,7 +518,6 @@ Function Get-TTRemoteSMBShare {
                         'Description' = $Share.Description;
                         'Path' = $Share.Path
                     }
-                    Write-Verbose "WMI query completed"
                     $Object = New-Object -TypeName psobject -Property $Hash
                     $Object.PSObject.TypeNames.Insert(0,'TTLab.RemoteSMBShare')
                     Write-Output $Object
@@ -580,93 +531,90 @@ Function Get-TTRemoteSMBShare {
 Function Get-TTProgram {
     <#
     .SYNOPSIS
-    Gets a list of installed software on a local or remote computer.
+
+    Gets a list of installed software on a local or remote computers.
+
     .DESCRIPTION
-    The Get-TTProgram cmdlet gets a list of installed software on a local or remote computer.
+
+    The Get-TTProgram cmdlet gets a list of installed software on a local or remote computers.
 
     Before it starts to look for installed software it queries Win32_OperatingSystem class to check whether it is 32 or 64-bits architecture.
     Next, it retrieves a list from HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* for 32-bits systems or from
     HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* for 64-bits systems.
 
-    As a final step, it creates an object called TTLab.Program which can be piped to another cmdlet.
     .PARAMETER ComputerName
-    Gets the information about installed programs from the specified computers, up to ten machines are allowed.
-    .PARAMETER ErrorLog
-    Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
-    .PARAMETER LogErrors
+
+    Run cmdlet on the specified computers.
+
+    .PARAMETER ErrorLogPath
+
+    Specifies the path where the error log will be writed. By default, it is C:\Error.txt.
+
+    .PARAMETER LogError
+
     Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+
     .EXAMPLE
+
     Get-TTProgram -ComputerName localhost
     #>
     [CmdletBinding()]
     Param (
         [Parameter(Mandatory=$True,
                     ValueFromPipeline=$True,
-                    ValueFromPipelineByPropertyName = $True,
-                    HelpMessage="Computer name")]
-        [Alias('Hostname')]
-        [ValidateCount(1,10)]
+                    ValueFromPipelineByPropertyName = $True)]
         [ValidateNotNullOrEmpty()]
-        [string[]]$ComputerName,
+        [string[]] $ComputerName,
 
-        [string]$ErrorLog = $TTErrorLogPreference,
+        [string] $ErrorLogPath = $DefaultErrorLogPath,
 
-        [switch]$LogErrors
+        [switch] $LogError
     )
     BEGIN {
-        if ($LogErrors) {
-            Write-Verbose "Error log: $ErrorLog"
-            Try {
-                Remove-Item -Path $ErrorLog -ErrorAction Stop -ErrorVariable ErrorVar
-                Write-Warning "Previos log at $ErrorLog was removed"
-            } Catch {
+        if ($LogError) {
+            try {
+                Remove-Item -Path $ErrorLogPath -ErrorAction Stop -ErrorVariable ErrorVar
+                Write-Warning "Previos log at $ErrorLogPath was removed"
+            } catch {
                 Write-Warning $ErrorVar.message
             }
-        } else {
-            Write-Verbose "Error log is off"
         }
     }
     PROCESS {
         foreach ($Computer in $ComputerName) {
-            Try {
+            try {
                 $Status = $True
                 Write-Verbose "Querying $Computer for OS architecture"
                 $OSArchitecture = Get-CimInstance -ClassName Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar | Select-Object -ExpandProperty OSArchitecture
-            } Catch {
+            } catch {
                 $Status = $False
-                Write-Warning "Querying $Computer for OS architecture FAILED"
                 Write-Warning $ErrorVar.message
-                If ($LogErrors) {
-                    $Computer | Out-File -FilePath $ErrorLog -Append
-                    $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
-                    Write-Warning "Logged to $ErrorLog"
+                if ($LogError) {
+                    $Computer | Out-File -FilePath $ErrorLogPath -Append
+                    $ErrorVar.message | Out-File -FilePath $ErrorLogPath -Append
                 }
             }
             if ($Status) {
                 if ($OSArchitecture.Substring(0,2) -eq 32) {
-                    Try {
+                    try {
                         Write-Verbose "Querying $Computer x86"
                         $Programs = Invoke-Command -ComputerName $Computer -ScriptBlock {Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* -ErrorAction Stop -ErrorVariable ErrorVar | Where-Object {$PSItem.DisplayName -gt $null}}
-                    } Catch {
-                        Write-Warning "$Computer FAILED"
+                    } catch {
                         Write-Warning $ErrorVar.message
-                        If ($LogErrors) {
-                            $Computer | Out-File -FilePath $ErrorLog -Append
-                            $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
-                            Write-Warning "Logged to $ErrorLog"
+                        if ($LogError) {
+                            $Computer | Out-File -FilePath $ErrorLogPath -Append
+                            $ErrorVar.message | Out-File -FilePath $ErrorLogPath -Append
                         }
                     }
                 } else {
-                    Try {
+                    try {
                         Write-Verbose "Querying $Computer x64"
                         $Programs = Invoke-Command -ComputerName $Computer -ScriptBlock {Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* -ErrorAction Stop -ErrorVariable ErrorVar | Where-Object {$PSItem.DisplayName -gt $null}}
-                    } Catch {
-                        Write-Warning "$Computer FAILED"
+                    } catch {
                         Write-Warning $ErrorVar.message
-                        If ($LogErrors) {
-                            $Computer | Out-File -FilePath $ErrorLog -Append
-                            $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
-                            Write-Warning "Logged to $ErrorLog"
+                        if ($LogError) {
+                            $Computer | Out-File -FilePath $ErrorLogPath -Append
+                            $ErrorVar.message | Out-File -FilePath $ErrorLogPath -Append
                         }
                     }
                 }
@@ -677,7 +625,6 @@ Function Get-TTProgram {
                         'Version' = $Program.DisplayVersion;
                         'Publisher' = $Program.Publisher
                     }
-                    Write-Verbose "WMI query completed. Creating object"
                     $Object = New-Object -TypeName psobject -Property $Hash
                     $Object.PSObject.TypeNames.Insert(0,'TTLab.Program')
                     Write-Output $Object
@@ -688,209 +635,63 @@ Function Get-TTProgram {
     END {}
 }
 
-Function Restart-TTComputer {
-    <#
-    .SYNOPSIS
-    Reboots local or remote computer.
-    .DESCRIPTION
-    The Restart-TTComputer cmdlet reboots a local or remote computer.
-    It uses both Invoke-CimMethod and Invoke-WmiMethod, second is launched when the first failed.
-    .PARAMETER ComputerName
-    Gets the information about installed programs from the specified computers, up to ten machines are allowed.
-    .PARAMETER ErrorLog
-    Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
-    .PARAMETER LogErrors
-    Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
-    #>
-    [CmdletBinding(SupportsShouldProcess = $True, ConfirmImpact = 'High')]
-    Param (
-        [Parameter(Mandatory=$True,
-                    ValueFromPipeline=$True,
-                    ValueFromPipelineByPropertyName = $True,
-                    HelpMessage="Computer name")]
-        [Alias('Hostname')]
-        [ValidateNotNullOrEmpty()]
-        [string[]]$ComputerName,
-
-        [string]$ErrorLog = $TTErrorLogPreference,
-
-        [switch]$LogErrors
-    )
-    BEGIN {
-        if ($LogErrors) {
-            Write-Verbose "Error log: $ErrorLog"
-            Try {
-                Remove-Item -Path $ErrorLog -ErrorAction Stop -ErrorVariable ErrorVar
-                Write-Warning "Previos log at $ErrorLog was removed"
-            } Catch {
-                Write-Warning $ErrorVar.message
-            }
-        } else {
-            Write-Verbose "Error log is off"
-        }
-    }
-    PROCESS {
-        foreach ($Computer in $ComputerName) {
-            Try {
-                $Status = $True
-                Write-Debug "Attempting to reboot $Computer via Invoke-CimMethod"
-                Invoke-CimMethod -ClassName Win32_OperatingSystem -ComputerName $Computer -MethodName Reboot -ErrorAction Stop -ErrorVariable ErrorVar
-            } Catch {
-                $Status = $False
-                Write-Warning "$Computer reboot FAILED (Cim)"
-                Write-Warning $ErrorVar.message
-                If ($LogErrors) {
-                    $Computer | Out-File -FilePath $ErrorLog -Append
-                    $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
-                    Write-Warning "Logged to $ErrorLog"
-                }
-            }
-            If ($Status = $False) {
-                Try {
-                    Write-Debug "Attempting to reboot $Computer via Invoke-WmiMethod"
-                    Invoke-WmiMethod -Class Win32_OperatingSystem -Name Reboot -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar
-                } Catch {
-                    Write-Warning "$Computer reboot FAILED (Wmi)"
-                    Write-Warning $ErrorVar.message
-                    If ($LogErrors) {
-                        $Computer | Out-File -FilePath $ErrorLog -Append
-                        $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
-                        Write-Warning "Logged to $ErrorLog"
-                    }
-                }
-            }
-        }
-    }
-    END {}
-}
-
-Function Set-TTServicePassword {
-        <#
-    .SYNOPSIS
-    Changes the service's startup password.
-    .DESCRIPTION
-    The Set-TTServicePassword cmdlet changes the service's startup password.
-    .PARAMETER ServiceName
-    Specifies the service names of services to be retrieved.
-    .PARAMETER Password
-    Specifies the new service's password.
-    .PARAMETER ComputerName
-    Gets the information about installed programs from the specified computers, up to ten machines are allowed.
-    .PARAMETER ErrorLog
-    Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
-    .PARAMETER LogErrors
-    Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
-    #>
-    [CmdletBinding(SupportsShouldProcess = $True, ConfirmImpact = 'Medium')]
-    Param (
-        [Parameter(Mandatory=$True,
-                    ValueFromPipeline=$True,
-                    ValueFromPipelineByPropertyName = $True,
-                    HelpMessage="Computer name")]
-        [Alias('Hostname')]
-        [ValidateNotNullOrEmpty()]
-        [string[]]$ComputerName,
-
-        [Parameter(Mandatory = $True)]
-        [string]$ServiceName,
-
-        [Parameter(Mandatory = $True)]
-        [securestring]$Password,
-
-        [string]$ErrorLog = $TTErrorLogPreference,
-
-        [switch]$LogErrors
-    )
-    BEGIN {
-        if ($LogErrors) {
-            Write-Verbose "Error log: $ErrorLog"
-            Try {
-                Remove-Item -Path $ErrorLog -ErrorAction Stop -ErrorVariable ErrorVar
-                Write-Warning "Previos log at $ErrorLog was removed"
-            } Catch {
-                Write-Warning $ErrorVar.message
-            }
-        } else {
-            Write-Verbose "Error log is off"
-        }
-    }
-    PROCESS {
-        foreach ($Computer in $ComputerName) {
-            Try {
-                $Status = $True
-                Write-Debug "Querying $Computer"
-                $Services = Get-WmiObject -ComputerName $Computer -Class Win32_Service -Filter "name='$ServiceName" -ErrorAction Stop -ErrorVariable ErrorVar
-            } Catch {
-                $Status = $False
-                Write-Warning "Quering $Computer FAILED"
-                Write-Warning $ErrorVar.message
-                If ($LogErrors) {
-                    $Computer | Out-File -FilePath $ErrorLog -Append
-                    $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
-                    Write-Warning "Logged to $ErrorLog"
-                }
-            }
-            if ($Status) {
-                foreach ($Service in $Services) {
-                    if ($PSCmdlet.ShouldProcess("$Service on $Computer")) {
-                        $Service.change($null, $null, $null, $null, $null, $null, $null, $Password) | Out-Null
-                    }
-                }
-            }
-        }
-    }
-    END {}
-}
-
 Function Set-TTComputerState {
     <#
     .SYNOPSIS
-    Performs the specified (LogOff, Restart, ShutDown, PowerOff) action on a local or remote machine.
+
+    Performs the specified (LogOff, Restart, ShutDown, PowerOff) action on a local or remote computers.
+
     .DESCRIPTION
-    The Set-TTComputerState cmdlet performs the specified action (LogOff, Restart, ShutDown, PowerOff) on a local or remote machine, which is set via -Action parameter.
+
+    The Set-TTComputerState cmdlet performs the specified action (LogOff, Restart, ShutDown, PowerOff) on a local or remote computers, which is set via -Action parameter.
+
     .PARAMETER ComputerName
-    Performs the specified (LogOff, Restart, ShutDown, PowerOff) action on a local or remote machine, up to ten machines are allowed.
-    .PARAMETER ErrorLog
-    Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
-    .PARAMETER LogErrors
+
+    Run cmdlet on the specified computers.
+
+    .PARAMETER ErrorLogPath
+
+    Specifies a path where the error log will be writed. By default, it is C:\Error.txt.
+
+    .PARAMETER LogError
+
     Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+
     .PARAMETER Action
+
     Accepts only one of the listed values: LogOff, Restart, ShutDown, PowerOff.
+
     .PARAMETER Force
+
     Indicates that any action specified by the -Action parameter will use -Force privileges.
     #>
     [CmdletBinding(SupportsShouldProcess = $True, ConfirmImpact = 'High')]
     Param (
         [Parameter(Mandatory=$True,
                     ValueFromPipeline=$True,
-                    ValueFromPipelineByPropertyName = $True,
-                    HelpMessage="Computer name")]
-        [Alias('Hostname')]
+                    ValueFromPipelineByPropertyName = $True)]
         [ValidateNotNullOrEmpty()]
-        [string[]]$ComputerName,
+        [string[]] $ComputerName,
 
-        [string]$ErrorLog = $TTErrorLogPreference,
+        [string] $ErrorLogPath = $DefaultErrorLogPath,
 
-        [switch]$LogErrors,
+        [switch] $LogError,
 
-        [switch]$Force,
+        [switch] $Force,
 
         [Parameter(Mandatory=$True)]
         [ValidateSet("LogOff", "Restart", "ShutDown", "PowerOff")]
         [ValidateNotNullOrEmpty()]
-        [string]$Action
+        [string] $Action
     )
     BEGIN {
-        if ($LogErrors) {
-            Write-Verbose "Error log: $ErrorLog"
-            Try {
-                Remove-Item -Path $ErrorLog -ErrorAction Stop -ErrorVariable ErrorVar
-                Write-Warning "Previos log at $ErrorLog was removed"
-            } Catch {
+        if ($LogError) {
+            try {
+                Remove-Item -Path $ErrorLogPath -ErrorAction Stop -ErrorVariable ErrorVar
+                Write-Warning "Previos log at $ErrorLogPath was removed"
+            } catch {
                 Write-Warning $ErrorVar.message
             }
-        } else {
-            Write-Verbose "Error log is off"
         }
 
         switch ($Action) {
@@ -902,18 +703,16 @@ Function Set-TTComputerState {
     }
     PROCESS {
         foreach ($Computer in $ComputerName) {
-            Try {
+            try {
                 $Status = $True
                 Write-Debug "Querying $Computer"
                 $OS = Get-WmiObject -ComputerName $Computer -Class Win32_OperatingSYstem -ErrorAction Stop -ErrorVariable ErrorVar
-            } Catch {
+            } catch {
                 $Status = $False
-                Write-Warning "Quering $Computer FAILED"
                 Write-Warning $ErrorVar.message
-                If ($LogErrors) {
-                    $Computer | Out-File -FilePath $ErrorLog -Append
-                    $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
-                    Write-Warning "Logged to $ErrorLog"
+                if ($LogError) {
+                    $Computer | Out-File -FilePath $ErrorLogPath -Append
+                    $ErrorVar.message | Out-File -FilePath $ErrorLogPath -Append
                 }
             }
             if ($Status) {
@@ -935,65 +734,70 @@ Function Set-TTComputerState {
 Function Get-TTNetworkInfo {
     <#
     .SYNOPSIS
+
     Gets basic network adapters information.
+
     .DESCRIPTION
-    The Set-TTNetworkInfo cmdlet gets basic information such as Name, IP, MAC address from an active network adapter, from a local or remote machine.
+
+    The Set-TTNetworkInfo cmdlet gets basic information such as Name, IP, MAC address from an active network adapter, from a local or remote computers.
+
     .PARAMETER ComputerName
-    Gets basic network adapters information from a local or remote machine.
-    .PARAMETER ErrorLog
-    Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
-    .PARAMETER LogErrors
+
+    Run cmdlet on the specified computers.
+
+    .PARAMETER ErrorLogPath
+
+    Specifies the path where the error log will be writed. By default, it is C:\Error.txt.
+
+    .PARAMETER LogError
+
     Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+
     .PARAMETER WMIQuery
-    It is a switch parameter that indicates that Get-WMIObject will be used insted of Get-CIMInstance.
+
+    The switch parameter that indicates that Get-WMIObject will be used insted of Get-CIMInstance.
+
     #>
     [CmdletBinding()]
     Param (
         [Parameter(Mandatory=$True,
                     ValueFromPipeline=$True,
-                    ValueFromPipelineByPropertyName = $True,
-                    HelpMessage="Computer name")]
-        [Alias('Hostname')]
+                    ValueFromPipelineByPropertyName = $True)]
         [ValidateNotNullOrEmpty()]
-        [string[]]$ComputerName,
+        [string[]] $ComputerName,
 
-        [string]$ErrorLog = $TTErrorLogPreference,
+        [string] $ErrorLogPath = $DefaultErrorLogPath,
 
-        [switch]$LogErrors,
+        [switch] $LogError,
 
-        [switch]$WMIQuery
+        [switch] $WMIQuery
     )
     BEGIN {
-        if ($LogErrors) {
-            Write-Verbose "Error log: $ErrorLog"
-            Try {
-                Remove-Item -Path $ErrorLog -ErrorAction Stop -ErrorVariable ErrorVar
-                Write-Warning "Previos log at $ErrorLog was removed"
-            } Catch {
+        if ($LogError) {
+            try {
+                Remove-Item -Path $ErrorLogPath -ErrorAction Stop -ErrorVariable ErrorVar
+                Write-Warning "Previos log at $ErrorLogPath was removed"
+            } catch {
                 Write-Warning $ErrorVar.message
             }
-        } else {
-            Write-Verbose "Error log is off"
         }
     }
     PROCESS {
         foreach ($Computer in $ComputerName) {
-            Try {
+            try {
                 $Status = $True
                 Write-Verbose "Querying $Computer for network active adapters"
-                if($WMIQuery){
+                if ($WMIQuery) {
                     $Adapters = Get-WmiObject -Class Win32_NetworkAdapterConfiguration -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar | Where-Object {$PSItem.IPEnabled -eq 'True'}
-                } else{
+                } else {
                     $Adapters = Get-CimInstance -ClassName Win32_NetworkAdapterConfiguration -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar | Where-Object {$PSItem.IPEnabled -eq 'True'}
                 }
-            } Catch {
+            } catch {
                 $Status = $False
-                Write-Warning "Querying $Computer for network active adapters FAILED"
                 Write-Warning $ErrorVar.message
-                If ($LogErrors) {
-                    $Computer | Out-File -FilePath $ErrorLog -Append
-                    $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
-                    Write-Warning "Logged to $ErrorLog"
+                if ($LogError) {
+                    $Computer | Out-File -FilePath $ErrorLogPath -Append
+                    $ErrorVar.message | Out-File -FilePath $ErrorLogPath -Append
                 }
             }
             if ($Status) {
@@ -1005,7 +809,6 @@ Function Get-TTNetworkInfo {
                         'MAC' = $Adapter.MACAddress;
                         'IP' = $Adapter.IPAddress[0]
                     }
-                    Write-Verbose "WMI query completed. Creating object"
                     $Object = New-Object -TypeName psobject -Property $Hash
                     $Object.PSObject.TypeNames.Insert(0,'TTLab.NetworkAdapter')
                     Write-Output $Object
@@ -1019,9 +822,12 @@ Function Get-TTNetworkInfo {
 Function Get-TTInfo {
     <#
     .SYNOPSIS
-    Gets a huge amount of information about a local or remote machine.
+
+    Gets a huge amount of information about a local or remote computers.
+
     .DESCRIPTION
-    The Get-TTInfo cmdlet gets a huge amount of information about a local or remote machine.
+
+    The Get-TTInfo cmdlet gets a huge amount of information about a local or remote computers.
         'ComputerName' -    Hostname
         'OSVersion' -       Operating system version
         'SPVersion' -       Service pack version
@@ -1046,27 +852,41 @@ Function Get-TTInfo {
             Win32_NetworkAdapterConfiguration classes. In addtion it uses two Invoke-Command cmdlets to run Get-ItemProperty cmdlet.
 
         IN THIS FORM IT IS HIGHLY INEFFECTIVE DUE TO THE TIME NEEDED TO COMPLETE THE FUNCTION :)
+
     .PARAMETER ComputerName
-    Gets information from a local or remote machine.
-    .PARAMETER ErrorLog
-    Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
-    .PARAMETER LogErrors
+
+    Run cmdlet on the specified computers.
+
+    .PARAMETER ErrorLogPath
+
+    Specifies the path where the error log will be writed. By default, it is C:\Error.txt.
+
+    .PARAMETER LogError
+
     Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+
     .EXAMPLE
+
     PS C:\WINDOWS\system32> Get-TTInfo -ComputerName localhost | Export-Clixml -Path C:\PowerShellOutput\massive.xml
+
     .EXAMPLE
+
     PS C:\WINDOWS\system32> Get-TTInfo -ComputerName localhost | Select-Object -ExpandProperty Adapters
 
     DHCP Enabled IP           Name                                                           MAC
     True 192.168.0.10 Marvell Yukon 88E8059 Family PCI-E Gigabit Ethernet Controller 00:24:45:45:45:45
+
     .EXAMPLE
+
     PS C:\WINDOWS\system32> Get-TTInfo -ComputerName localhost | Select-Object -ExpandProperty Programs
 
     Publisher                     Name                                                           Version
     Igor Pavlov                   7-Zip 18.01                                                    18.01
     Cisco Systems, Inc.           Cisco Packet Tracer 7.1.1 32Bit                                7.1.1.0131
     Dropbox, Inc.                 Dropbox                                                        53.4.67
+
     .EXAMPLE
+
     PS C:\WINDOWS\system32> Get-TTInfo -ComputerName localhost | Select-Object -ExpandProperty Shares
 
     Path                              Description     Name
@@ -1074,7 +894,9 @@ Function Get-TTInfo {
     C:\                               Default share   C$
     D:\                               Default share   D$
     C:\WINDOWS\system32\spool\drivers Printer Drivers print$
+
     .EXAMPLE
+
     PS C:\WINDOWS\system32> Get-TTInfo -ComputerName localhost | Select-Object -ExpandProperty Services
 
     ProcessName : svchost.exe
@@ -1083,7 +905,9 @@ Function Get-TTInfo {
     VM          : 289193984
     ThreadCount : 49
     DisplayName : Application Information
+
     .EXAMPLE
+
     PS C:\WINDOWS\system32> Get-TTInfo -ComputerName localhost | Select-Object -ExpandProperty Volumes
 
     FreeSpace(GB) Drive                                             Size(GB)
@@ -1095,33 +919,28 @@ Function Get-TTInfo {
     Param (
         [Parameter(Mandatory=$True,
                     ValueFromPipeline=$True,
-                    ValueFromPipelineByPropertyName = $True,
-                    HelpMessage="Computer name")]
-        [Alias('Hostname')]
+                    ValueFromPipelineByPropertyName = $True)]
         [ValidateNotNullOrEmpty()]
-        [string[]]$ComputerName,
+        [string[]] $ComputerName,
 
-        [string]$ErrorLog = $TTErrorLogPreference,
+        [string] $ErrorLogPath = $DefaultErrorLogPath,
 
-        [switch]$LogErrors
+        [switch] $LogError
     )
     BEGIN {
-        if ($LogErrors) {
-            Write-Verbose "Error log: $ErrorLog"
-            Try {
-                Remove-Item -Path $ErrorLog -ErrorAction Stop -ErrorVariable ErrorVar
-                Write-Warning "Previos log at $ErrorLog was removed"
-            } Catch {
+        if ($LogError) {
+            try {
+                Remove-Item -Path $ErrorLogPath -ErrorAction Stop -ErrorVariable ErrorVar
+                Write-Warning "Previos log at $ErrorLogPath was removed"
+            } catch {
                 Write-Warning $ErrorVar.message
             }
-        } else {
-            Write-Verbose "Error log is off"
         }
     }
     PROCESS {
         foreach ($Computer in $ComputerName) {
             Write-Verbose "Querying $Computer"
-            Try {
+            try {
                 $Status = $True
                 $OS = Get-CimInstance -ClassName Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar
                 $Comp = Get-CimInstance -ClassName Win32_ComputerSystem -ComputerName $Computer
@@ -1131,14 +950,12 @@ Function Get-TTInfo {
                 $Shares = Invoke-Command -ComputerName $Computer -ScriptBlock {Get-SmbShare}
                 $Adapters = Get-CimInstance -ClassName Win32_NetworkAdapterConfiguration -ComputerName $Computer | Where-Object {$PSItem.IPEnabled -eq 'True'}
                 $OSArchitecture = Get-CimInstance -ClassName Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar | Select-Object -ExpandProperty OSArchitecture
-            } Catch {
+            } catch {
                 $Status = $False
-                Write-Warning "One of the command send to the $Computer FAILED"
                 Write-Warning $ErrorVar.message
-                If ($LogErrors) {
-                    $Computer | Out-File -FilePath $ErrorLog -Append
-                    $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
-                    Write-Warning "Logged to $ErrorLog"
+                if ($LogError) {
+                    $Computer | Out-File -FilePath $ErrorLogPath -Append
+                    $ErrorVar.message | Out-File -FilePath $ErrorLogPath -Append
                 }
             }
             $VolumesArray = @()
@@ -1146,7 +963,7 @@ Function Get-TTInfo {
             $SharesArray = @()
             $ProgramsArray = @()
             $AdaptersArray = @()
-            If ($Status) {
+            if ($Status) {
 
                 switch ($Comp.AdminPasswordStatus) {
                     1 {$AdminPassText = 'Disabled'}
@@ -1234,7 +1051,7 @@ Function Get-TTInfo {
                 }
             }
 
-            $MainHash = @{
+            $Hash = @{
                 'ComputerName' = $Computer;
                 'OSVersion' = $SystemObject.OSVersion;
                 'SPVersion' = $SystemObject.SPVersion;
@@ -1249,112 +1066,38 @@ Function Get-TTInfo {
                 'Programs'= $ProgramsArray;
                 'Adapters' = $AdaptersArray;
             }
-            $MainObject = New-Object -TypeName psobject -Property $MainHash
-            Write-Output $MainObject
+            $Object = New-Object -TypeName psobject -Property $Hash
+            Write-Output $Object
         }
     }
     END {}
 }
 
-Function Export-TTHTML {
-    [CmdletBinding(DefaultParameterSetName='Page',  RemotingCapability='None')]
-    Param (
-        [Parameter(ValueFromPipeline=$true)]
-        [psobject]
-        ${InputObject},
-
-        [Parameter(Position=0)]
-        [System.Object[]]
-        ${Property},
-
-        [Parameter(ParameterSetName='Page', Position=3)]
-        [string[]]
-        ${Body},
-
-        [Parameter(ParameterSetName='Page', Position=1)]
-        [string[]]
-        ${Head},
-
-        [Parameter(ParameterSetName='Page', Position=2)]
-        [ValidateNotNullOrEmpty()]
-        [string]
-        ${Title},
-
-        [ValidateNotNullOrEmpty()]
-        [ValidateSet('Table','List')]
-        [string]
-        ${As},
-
-        [Parameter(ParameterSetName='Page')]
-        [Alias('cu','uri')]
-        [ValidateNotNullOrEmpty()]
-        [uri]
-        ${CssUri},
-
-        [ValidateNotNullOrEmpty()]
-        [string[]]
-        ${PostContent},
-
-        [ValidateNotNullOrEmpty()]
-        [string[]]
-        ${PreContent},
-
-        [Parameter(Mandatory=$True)]
-        [ValidateNotNullOrEmpty()]
-        [string]
-        $FilePath
-    )
-
-
-    BEGIN {
-        Try {
-            $outBuffer = $null
-            if ($PSBoundParameters.TryGetValue('OutBuffer', [ref]$outBuffer))
-            {
-                $PSBoundParameters['OutBuffer'] = 1
-            }
-            $wrappedCmd = $ExecutionContext.InvokeCommand.GetCommand('Microsoft.PowerShell.Utility\ConvertTo-Html', [System.Management.Automation.CommandTypes]::Cmdlet)
-            $PSBoundParameters.Remove('FilePath') | Out-Null
-            $scriptCmd = {& $wrappedCmd @PSBoundParameters | Out-File $FilePath}
-            $steppablePipeline = $scriptCmd.GetSteppablePipeline($myInvocation.CommandOrigin)
-            $steppablePipeline.Begin($PSCmdlet)
-        } Catch {
-            Throw
-        }
-    }
-
-    PROCESS {
-        Try {
-            $steppablePipeline.Process($_)
-        } Catch {
-            Throw
-        }
-    }
-
-    END {
-        Try {
-            $steppablePipeline.End()
-        } Catch {
-            Throw
-        }
-}
-
-}
-
 Function Get-TTAdminPasswordAge {
     <#
     .SYNOPSIS
+
     Gets information about active accounts on a local or remote machine.
+
     .DESCRIPTION
+
     The Get-TTAdminPasswordAge cmdlet gets information about active accounts on a local or remote machine. First, it gets names of members of Administrator group, then it use
     this names to call for account object. Finally, using object's properties it calculates password age.
+
     .PARAMETER ComputerName
-    Gets information from a local or remote machine.
-    .PARAMETER ErrorLog
-    Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
-    .PARAMETER LogErrors
+
+    Run cmdlet on the specified computers.
+
+    .PARAMETER ErrorLogPath
+
+    Specifies the path where the error log will be writed. By default, it is C:\Error.txt.
+
+    .PARAMETER LogError
+
     Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+
     .EXAMPLE
+
     PS C:\WINDOWS\system32> Get-TTAdminPasswordAge -ComputerName $env:COMPUTERNAME
     #>
 
@@ -1363,54 +1106,48 @@ Function Get-TTAdminPasswordAge {
         [Parameter(Mandatory = $True,
                     ValueFromPipeline = $True,
                     ValueFromPipelineByPropertyName = $True)]
-        [Alias("Hostname")]
         [ValidateNotNullOrEmpty()]
-        [string[]]$ComputerName,
+        [string[]] $ComputerName,
 
-        [string]$ErrorLog = $TTErrorLogPreference,
+        [string] $ErrorLogPath = $DefaultErrorLogPath,
 
-        [switch]$LogErrors
+        [switch] $LogError
     )
     BEGIN{
-        if ($LogErrors) {
-            Write-Verbose "Error log: $ErrorLog"
-            Try {
-                Remove-Item -Path $ErrorLog -ErrorAction Stop -ErrorVariable ErrorVar
-                Write-Warning "Previos log at $ErrorLog was removed"
-            } Catch {
+        if ($LogError) {
+            try {
+                Remove-Item -Path $ErrorLogPath -ErrorAction Stop -ErrorVariable ErrorVar
+                Write-Warning "Previos log at $ErrorLogPath was removed"
+            } catch {
                 Write-Warning $ErrorVar.message
             }
-        } else {
-            Write-Verbose "Error log is off"
         }
     }
 
     PROCESS{
         foreach ($Computer in $ComputerName) {
             Write-Verbose "Querying $Computer"
-            Try {
+            try {
                 $Status = $True
                 $AdminAccountsNames = Invoke-Command -ComputerName $Computer -ScriptBlock {Get-LocalGroupMember -SID S-1-5-32-544 |
                                         Where-Object {$PSItem.ObjectClass -eq 'User'} |
                                         Select-Object -ExpandProperty Name} -ErrorAction Stop -ErrorVariable ErrorVar
-            } Catch {
+            } catch {
                 $Status = $False
-                Write-Warning "Querying $Computer FAILED"
                 Write-Warning $ErrorVar.message
-                If ($LogErrors) {
-                    $Computer | Out-File -FilePath $ErrorLog -Append
-                    $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
-                    Write-Warning "Logged to $ErrorLog"
+                if ($LogError) {
+                    $Computer | Out-File -FilePath $ErrorLogPath -Append
+                    $ErrorVar.message | Out-File -FilePath $ErrorLogPath -Append
                 }
             }
 
-            If ($Status) {
-                foreach($AdminAccountName in $AdminAccountsNames) {
+            if ($Status) {
+                foreach ($AdminAccountName in $AdminAccountsNames) {
                     $Position = $AdminAccountName.IndexOf("\")
                     $Name = $AdminAccountName.Substring($Position+1)
 
                     $AdminAccount = Invoke-Command -ComputerName $Computer -ScriptBlock {Get-LocalUser | Where-Object {$PSItem.Enabled -eq $True -and $PSItem.Name -eq $Using:Name}}
-                    if ($AdminAccount){
+                    if ($AdminAccount) {
                         $AdminPassLastSet = $AdminAccount | Select-Object -ExpandProperty PasswordLastSet
                         $Today = Get-Date
                         $PasswordAge = $Today - $AdminPassLastSet
@@ -1433,22 +1170,39 @@ Function Get-TTAdminPasswordAge {
 Function Get-TTEventLog {
     <#
     .SYNOPSIS
+
     Gets specified event logs and writes it into a file.
+
     .DESCRIPTION
+
     The Get-TTEventlog cmdlet gets specified event log, writes it into a file and then remove it from the machine.
+
     .PARAMETER ComputerName
-    Gets information from a local or remote machine.
+
+    Run cmdlet on the specified computers.
+
     .PARAMETER Path
-    Specifies a path where the event log will be stored. By default, it is C:\EventLog.txt.
+
+    Specifies the path where the event log will be writed. By default, it is C:\EventLog.txt.
+
     .PARAMETER LogName
+
     Gets the log provided with this parameter.
-    .PARAMETER ErrorLog
-    Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
-    .PARAMETER LogErrors
+
+    .PARAMETER ErrorLogPath
+
+    Specifies a path where the error log will be writed. By default, it is C:\Error.txt.
+
+    .PARAMETER LogError
+
     Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+
     .PARAMETER ClearLog
+
     Specifies that log after writing to a file will be deleted from the machine.
+
     .EXAMPLE
+
     Get-TTEventLog -ComputerName $env:COMPUTERNAME -LogName Application -Path 'C:\Users\User\Desktop\log.txt'
     #>
     [CmdletBinding()]
@@ -1456,13 +1210,12 @@ Function Get-TTEventLog {
         [Parameter(Mandatory = $True,
                     ValueFromPipeline = $True,
                     ValueFromPipelineByPropertyName = $True)]
-        [Alias("Hostname")]
         [ValidateNotNullOrEmpty()]
-        [string[]]$ComputerName,
+        [string[]] $ComputerName,
 
-        [string]$ErrorLog = $TTErrorLogPreference,
+        [string] $ErrorLogPath = $DefaultErrorLogPath,
 
-        [switch]$LogErrors,
+        [switch] $LogError,
 
         [Parameter(Mandatory = $True)]
         [ValidateNotNullOrEmpty()]
@@ -1473,58 +1226,51 @@ Function Get-TTEventLog {
         [switch]$ClearLog
     )
     BEGIN {
-        if ($LogErrors) {
-            Write-Verbose "Error log: $ErrorLog"
-            Try {
-                Remove-Item -Path $ErrorLog -ErrorAction Stop -ErrorVariable ErrorVar
-                Write-Warning "Previos log at $ErrorLog was removed"
-            } Catch {
+        if ($LogError) {
+            try {
+                Remove-Item -Path $ErrorLogPath -ErrorAction Stop -ErrorVariable ErrorVar
+                Write-Warning "Previos log at $ErrorLogPath was removed"
+            } catch {
                 Write-Warning $ErrorVar.message
             }
-        } else {
-            Write-Verbose "Error log is off"
         }
     }
     PROCESS {
-        foreach ($Computer in $ComputerName){
+        foreach ($Computer in $ComputerName) {
             Write-Verbose "Querying $Computer"
-            Try {
+            try {
                 $Status = $True
                 $EventLogs = Get-EventLog -ComputerName $Computer -LogName $LogName -ErrorAction Stop -ErrorVariable ErrorVar | Format-List -Property '*'
-            } Catch {
+            } catch {
                 $Status = $False
-                Write-Warning "Querying $Computer FAILED"
                 Write-Warning $ErrorVar.message
-                If ($LogErrors) {
-                    $Computer | Out-File -FilePath $ErrorLog -Append
-                    $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
-                    Write-Warning "Logged to $ErrorLog"
+                if ($LogError) {
+                    $Computer | Out-File -FilePath $ErrorLogPath -Append
+                    $ErrorVar.message | Out-File -FilePath $ErrorLogPath -Append
                 }
             }
-            If($Status) {
-                Try {
+            if ($Status) {
+                try {
                     $Status = $True
                     $EventLogs | Out-File -FilePath $Path -Append -ErrorAction Stop -ErrorVariable ErrorVar
-                } Catch {
+                } catch {
                     $Status = $False
                     Write-Warning $ErrorVar.message
-                    If ($LogErrors) {
-                        $Computer | Out-File -FilePath $ErrorLog -Append
-                        $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
-                        Write-Warning "Logged to $ErrorLog"
+                    if ($LogError) {
+                        $Computer | Out-File -FilePath $ErrorLogPath -Append
+                        $ErrorVar.message | Out-File -FilePath $ErrorLogPath -Append
                     }
                 }
-                If($Status -and $ClearLog){
-                    Try{
+                if ($Status -and $ClearLog) {
+                    try{
                         $Status = $True
                         Remove-EventLog -ComputerName $Computer -LogName $LogName -ErrorAction Stop -ErrorVariable ErrorVar
-                    } Catch{
+                    } catch {
                         $Status = $False
                         Write-Warning $ErrorVar.message
-                        If ($LogErrors) {
-                            $Computer | Out-File -FilePath $ErrorLog -Append
-                            $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
-                            Write-Warning "Logged to $ErrorLog"
+                        if ($LogError) {
+                            $Computer | Out-File -FilePath $ErrorLogPath -Append
+                            $ErrorVar.message | Out-File -FilePath $ErrorLogPath -Append
                         }
                     }
                 }
@@ -1537,18 +1283,31 @@ Function Get-TTEventLog {
 Function Get-TTUptime{
     <#
     .SYNOPSIS
+
     Gets information about last boot up time and uptime from a local or remote machine.
+
     .DESCRIPTION
+
     The Get-TTUptime cmdlet gets information about last boot up time and uptime from a local or remote machine.
+
     .PARAMETER ComputerName
-    Gets information from a local or remote machine.
-    .PARAMETER ErrorLog
-    Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
-    .PARAMETER LogErrors
+
+    Run cmdlet on the specified computers.
+
+    .PARAMETER ErrorLogPath
+
+    Specifies the path where the error log will be writed. By default, it is C:\Error.txt.
+
+    .PARAMETER LogError
+
     Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+
     .PARAMETER WMIQuery
-    It is a switch parameter that indicates that Get-WMIObject will be used insted of Get-CIMInstance.
+
+    The switch parameter that indicates that Get-WMIObject will be used insted of Get-CIMInstance.
+
     .EXAMPLE
+
     PS C:\Windows\system32> Get-TTUptime -ComputerName $env:COMPUTERNAME, localhost
 
     ComputerName    Uptime     LastBootUpTime     
@@ -1562,54 +1321,47 @@ Function Get-TTUptime{
         [Parameter(Mandatory = $True,
                     ValueFromPipeline = $True,
                     ValueFromPipelineByPropertyName = $True)]
-        [Alias("Hostname")]
         [ValidateNotNullOrEmpty()]
-        [string[]]$ComputerName,
+        [string[]] $ComputerName,
 
-        [string]$ErrorLog = $TTErrorLogPreference,
+        [string] $ErrorLogPath = $DefaultErrorLogPath,
 
-        [switch]$LogErrors,
+        [switch] $LogError,
 
-        [switch]$WMIQuery
+        [switch] $WMIQuery
     )
     BEGIN{
-        if ($LogErrors) {
-            Write-Verbose "Error log: $ErrorLog"
-            Try {
-                Remove-Item -Path $ErrorLog -ErrorAction Stop -ErrorVariable ErrorVar
-                Write-Warning "Previos log at $ErrorLog was removed"
-            } Catch {
+        if ($LogError) {
+            try {
+                Remove-Item -Path $ErrorLogPath -ErrorAction Stop -ErrorVariable ErrorVar
+                Write-Warning "Previos log at $ErrorLogPath was removed"
+            } catch {
                 Write-Warning $ErrorVar.message
             }
-        } else {
-            Write-Verbose "Error log is off"
         }
     }
     PROCESS{
-        foreach($Computer in $ComputerName){
+        foreach ($Computer in $ComputerName) {
             Write-Verbose "Querying $Computer"
-            Try{
+            try {
                 $Status = $True
-                if($WMIQuery){
+                if ($WMIQuery) {
                     $LastBootUpTime = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar
-
                     $LastBootUpTime = $LastBootUpTime.ConvertToDateTime($LastBootUpTime.LastBootUpTime)
-                }else{
+                } else {
                     $LastBootUpTime = Get-CimInstance -ClassName Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar | 
                     Select-Object -ExpandProperty LastBootUpTime
                 }
                 $Today = Get-Date
-            } Catch{
+            } catch {
                 $Status = $False
-                Write-Warning "Querying $Computer FAILED"
                 Write-Warning $ErrorVar.message
-                If ($LogErrors) {
-                    $Computer | Out-File -FilePath $ErrorLog -Append
-                    $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
-                    Write-Warning "Logged to $ErrorLog"
+                if ($LogError) {
+                    $Computer | Out-File -FilePath $ErrorLogPath -Append
+                    $ErrorVar.message | Out-File -FilePath $ErrorLogPath -Append
                 }
             }
-            if($Status){
+            if ($Status) {
                 $Uptime = $Today - $LastBootUpTime
 
                 $Days = $Uptime.Days
@@ -1622,6 +1374,7 @@ Function Get-TTUptime{
                     'LastBootUpTime' = $LastBootUpTime;
                     'Uptime' = $UptimeString;
                 }
+
                 $Object = New-Object -TypeName psobject -Property $Hash
                 $Object.PSObject.TypeNames.Insert(0,'TTLab.Uptime')
                 Write-Output $Object
@@ -1632,25 +1385,21 @@ Function Get-TTUptime{
 }
 
 #Variables
-Export-ModuleMember -Variable TTErrorLogPreference
+Export-ModuleMember -Variable ErrorLogDefaultPath
 
 #General Functions
 Export-ModuleMember -Function Get-TTSystemInfo
 Export-ModuleMember -Function Get-TTVolumeInfo
 Export-ModuleMember -Function Get-TTServiceInfo
-Export-ModuleMember -Function Get-TTSystemInfo2
-Export-ModuleMember -Function Get-TTRemoteSMBShare
+Export-ModuleMember -Function Get-TTSMBShare
 Export-ModuleMember -Function Get-TTProgram
-Export-ModuleMember -Function Restart-TTComputer
-Export-ModuleMember -Function Set-TTServicePassword
 Export-ModuleMember -Function Set-TTComputerState
 Export-ModuleMember -Function Get-TTNetworkInfo
 Export-ModuleMember -Function Get-TTInfo
-Export-ModuleMember -Function Export-TTHTML
 Export-ModuleMember -Function Get-TTAdminPasswordAge
 Export-ModuleMember -Function Get-TTEventLog
 Export-ModuleMember -Function Get-TTUptime
 
 #Database Functions
-Export-ModuleMember -Function Get-TTDBData
-Export-ModuleMember -Function Invoke-TTDBData
+#Export-ModuleMember -Function Get-TTDBData
+#Export-ModuleMember -Function Invoke-TTDBData

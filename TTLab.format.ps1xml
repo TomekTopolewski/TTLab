@@ -29,12 +29,20 @@
                                 <Label>BIOSSerialNumber</Label>
                                 <PropertyName>BIOSSerial</PropertyName>
                             </ListItem>
+                            <ListItem>
+                                <Label>OSType</Label>
+                                <PropertyName>OSType</PropertyName>
+                            </ListItem>
                              <ListItem>
                                 <PropertyName>OSVersion</PropertyName>
                             </ListItem>
                             <ListItem>
                                 <PropertyName>SPVersion</PropertyName>
-                            </ListItem>                                                                                                                                                                                                
+                            </ListItem>
+                            <ListItem>
+                                <Label>LastBootTime</Label>
+                                <PropertyName>LastBootTime</PropertyName>
+                            </ListItem>                                                                                                                                                                                               
                         </ListItems>
                     </ListEntry>
                 </ListEntries>
@@ -145,42 +153,6 @@
                     </ListEntry>
                 </ListEntries>
             </ListControl>
-        </View>
-        <View>
-            <Name>TTLab.SystemInfo2</Name>
-            <ViewSelectedBy>
-                <TypeName>TTLab.SystemInfo2</TypeName>
-            </ViewSelectedBy>
-            <TableControl>
-                <TableHeaders>
-                    <TableColumnHeader/>
-                    <TableColumnHeader/>
-                    <TableColumnHeader/>
-                    <TableColumnHeader/>
-                    <TableColumnHeader/>
-                </TableHeaders>
-                <TableRowEntries>
-                    <TableRowEntry>
-                        <TableColumnItems>
-                            <TableColumnItem>
-                                <PropertyName>ComputerName</PropertyName>
-                            </TableColumnItem>
-                            <TableColumnItem>
-                                <PropertyName>OSType</PropertyName>
-                            </TableColumnItem>
-                            <TableColumnItem>
-                                <PropertyName>LastBootTime</PropertyName>
-                            </TableColumnItem>
-                            <TableColumnItem>
-                                <PropertyName>Manufacturer</PropertyName>
-                            </TableColumnItem>
-                            <TableColumnItem>
-                                <PropertyName>Model</PropertyName>
-                            </TableColumnItem>                                                        
-                        </TableColumnItems>
-                    </TableRowEntry>
-                 </TableRowEntries>
-            </TableControl>
         </View>
         <View>
             <Name>TTLab.Program</Name>
