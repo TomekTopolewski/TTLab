@@ -898,6 +898,8 @@ Function Get-TTNetworkInfo {
     Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
     .PARAMETER LogErrors
     Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+    .PARAMETER WMIQuery
+    It is a switch parameter that indicates that Get-WMIObject will be used insted of Get-CIMInstance.
     #>
     [CmdletBinding()]
     Param (
@@ -911,7 +913,9 @@ Function Get-TTNetworkInfo {
 
         [string]$ErrorLog = $TTErrorLogPreference,
 
-        [switch]$LogErrors
+        [switch]$LogErrors,
+
+        [switch]$WMIQuery
     )
     BEGIN {
         if ($LogErrors) {
@@ -931,83 +935,11 @@ Function Get-TTNetworkInfo {
             Try {
                 $Status = $True
                 Write-Verbose "Querying $Computer for network active adapters"
-                $Adapters = Get-CimInstance -ClassName Win32_NetworkAdapterConfiguration -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar | Where-Object {$PSItem.IPEnabled -eq 'True'}
-            } Catch {
-                $Status = $False
-                Write-Warning "Querying $Computer for network active adapters FAILED"
-                Write-Warning $ErrorVar.message
-                If ($LogErrors) {
-                    $Computer | Out-File -FilePath $ErrorLog -Append
-                    $ErrorVar.message | Out-File -FilePath $ErrorLog -Append
-                    Write-Warning "Logged to $ErrorLog"
+                if($WMIQuery){
+                    $Adapters = Get-WmiObject -Class Win32_NetworkAdapterConfiguration -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar | Where-Object {$PSItem.IPEnabled -eq 'True'}
+                } else{
+                    $Adapters = Get-CimInstance -ClassName Win32_NetworkAdapterConfiguration -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar | Where-Object {$PSItem.IPEnabled -eq 'True'}
                 }
-            }
-            if ($Status) {
-                foreach ($Adapter in $Adapters) {
-                    $Hash = @{
-                        'ComputerName' = $Computer;
-                        'Name' = $Adapter.Description;
-                        'DHCP Enabled' = $Adapter.DHCPEnabled;
-                        'MAC' = $Adapter.MACAddress;
-                        'IP' = $Adapter.IPAddress[0]
-                    }
-                    Write-Verbose "WMI query completed. Creating object"
-                    $Object = New-Object -TypeName psobject -Property $Hash
-                    $Object.PSObject.TypeNames.Insert(0,'TTLab.NetworkAdapter')
-                    Write-Output $Object
-                }
-            }
-        }
-    }
-    END {}
-}
-
-Function Get-TTNetworkInfoWMI {
-    <#
-    .SYNOPSIS
-    Gets basic network adapters information.
-    .DESCRIPTION
-    The Set-TTNetworkInfo cmdlet gets basic information such as Name, IP, MAC address from an active network adapter, from a local or remote machine.
-    .PARAMETER ComputerName
-    Gets basic network adapters information from a local or remote machine.
-    .PARAMETER ErrorLog
-    Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
-    .PARAMETER LogErrors
-    Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
-    #>
-    [CmdletBinding()]
-    Param (
-        [Parameter(Mandatory=$True,
-                    ValueFromPipeline=$True,
-                    ValueFromPipelineByPropertyName = $True,
-                    HelpMessage="Computer name")]
-        [Alias('Hostname')]
-        [ValidateNotNullOrEmpty()]
-        [string[]]$ComputerName,
-
-        [string]$ErrorLog = $TTErrorLogPreference,
-
-        [switch]$LogErrors
-    )
-    BEGIN {
-        if ($LogErrors) {
-            Write-Verbose "Error log: $ErrorLog"
-            Try {
-                Remove-Item -Path $ErrorLog -ErrorAction Stop -ErrorVariable ErrorVar
-                Write-Warning "Previos log at $ErrorLog was removed"
-            } Catch {
-                Write-Warning $ErrorVar.message
-            }
-        } else {
-            Write-Verbose "Error log is off"
-        }
-    }
-    PROCESS {
-        foreach ($Computer in $ComputerName) {
-            Try {
-                $Status = $True
-                Write-Verbose "Querying $Computer for network active adapters"
-                $Adapters = Get-WmiObject -Class Win32_NetworkAdapterConfiguration -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar | Where-Object {$PSItem.IPEnabled -eq 'True'}
             } Catch {
                 $Status = $False
                 Write-Warning "Querying $Computer for network active adapters FAILED"
@@ -1564,6 +1496,8 @@ Function Get-TTUptime{
     Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
     .PARAMETER LogErrors
     Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+    .PARAMETER WMIQuery
+    It is a switch parameter that indicates that Get-WMIObject will be used insted of Get-CIMInstance.
     .EXAMPLE
     PS C:\Windows\system32> Get-TTUptime -ComputerName $env:COMPUTERNAME, localhost
 
@@ -1584,7 +1518,9 @@ Function Get-TTUptime{
 
         [string]$ErrorLog = $TTErrorLogPreference,
 
-        [switch]$LogErrors
+        [switch]$LogErrors,
+
+        [switch]$WMIQuery
     )
     BEGIN{
         if ($LogErrors) {
@@ -1604,8 +1540,14 @@ Function Get-TTUptime{
             Write-Verbose "Querying $Computer"
             Try{
                 $Status = $True
-                $LastBootUpTime = Get-CimInstance -ClassName Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar | 
-                                                                                                            Select-Object -ExpandProperty LastBootUpTime
+                if($WMIQuery){
+                    $LastBootUpTime = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar
+
+                    $LastBootUpTime = $LastBootUpTime.ConvertToDateTime($LastBootUpTime.LastBootUpTime)
+                }else{
+                    $LastBootUpTime = Get-CimInstance -ClassName Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar | 
+                    Select-Object -ExpandProperty LastBootUpTime
+                }
                 $Today = Get-Date
             } Catch{
                 $Status = $False
@@ -1658,7 +1600,6 @@ Export-ModuleMember -Function Export-TTHTML
 Export-ModuleMember -Function Get-TTAdminPasswordAge
 Export-ModuleMember -Function Get-TTEventLog
 Export-ModuleMember -Function Get-TTUptime
-Export-ModuleMember -Function Get-TTNetworkInfoWMI
 
 #Database Functions
 Export-ModuleMember -Function Get-TTDBData
