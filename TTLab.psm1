@@ -12,6 +12,8 @@ Function Get-TTSystemInfo {
         Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
     .PARAMETER LogErrors
         Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+    .PARAMETER WMIQuery
+    It is a switch parameter that indicates that Get-WMIObject will be used insted of Get-CIMInstance.
     .EXAMPLE
         Get-Content U:\Temp\Computers.txt | Get-TTSystemInfo -Verbose
     .EXAMPLE
@@ -30,7 +32,9 @@ Function Get-TTSystemInfo {
 
         [string]$ErrorLog = $TTErrorLogPreference,
 
-        [switch]$LogErrors
+        [switch]$LogErrors,
+
+        [switch]$WMIQuery
     )
     BEGIN {
         if ($LogErrors) {
@@ -50,7 +54,11 @@ Function Get-TTSystemInfo {
             Write-Verbose "Querying $Computer"
             Try {
                 $ErrorStatus = $True
-                $OS = Get-CimInstance -ClassName Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar
+                if($WMIQuery){
+                    $OS = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar
+                } else{
+                    $OS = Get-CimInstance -ClassName Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar
+                }
             } Catch {
                 $ErrorStatus = $False
                 Write-Warning "$Computer FAILED"
@@ -63,9 +71,13 @@ Function Get-TTSystemInfo {
             }
 
             if ($ErrorStatus) {
-                $Comp = Get-CimInstance -ClassName Win32_ComputerSystem -ComputerName $Computer
-                $Bios = Get-CimInstance -ClassName Win32_BIOS -ComputerName $Computer
-
+                if($WMIQuery){
+                    $Comp = Get-WmiObject -Class Win32_ComputerSystem -ComputerName $Computer
+                    $Bios = Get-WmiObject -Class Win32_BIOS -ComputerName $Computer
+                } else{
+                    $Comp = Get-CimInstance -ClassName Win32_ComputerSystem -ComputerName $Computer
+                    $Bios = Get-CimInstance -ClassName Win32_BIOS -ComputerName $Computer
+                }
                 switch ($Comp.AdminPasswordStatus) {
                     1 {$AdminPassText = 'Disabled'}
                     2 {$AdminPassText = 'Enabled'}
@@ -104,6 +116,8 @@ Function Get-TTVolumeInfo {
         Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
     .PARAMETER LogErrors
         Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+    .PARAMETER WMIQuery
+    It is a switch parameter that indicates that Get-WMIObject will be used insted of Get-CIMInstance.
     .EXAMPLE
         Get-Content U:\Temp\Computers.txt | Get-TTVolumeInfo -Verbose
     .EXAMPLE
@@ -122,7 +136,9 @@ Function Get-TTVolumeInfo {
 
         [string]$ErrorLog = $TTErrorLogPreference,
 
-        [switch]$LogErrors
+        [switch]$LogErrors,
+
+        [switch]$WMIQuery
     )
     BEGIN {
         if ($LogErrors) {
@@ -142,7 +158,11 @@ Function Get-TTVolumeInfo {
             Write-Verbose "Querying $Computer"
             Try {
                 $ErrorStatus = $True
-                $Volumes = Get-CimInstance -ClassName Win32_Volume -ComputerName $Computer -Filter "DriveType=3" -ErrorAction Stop -ErrorVariable ErrorVar
+                if($WMIQuery){
+                    $Volumes = Get-WmiObject -Class Win32_Volume -ComputerName $Computer -Filter "DriveType=3" -ErrorAction Stop -ErrorVariable ErrorVar
+                } else{
+                    $Volumes = Get-CimInstance -ClassName Win32_Volume -ComputerName $Computer -Filter "DriveType=3" -ErrorAction Stop -ErrorVariable ErrorVar
+                }
             } Catch {
                 Write-Warning "$Computer FAILED"
                 Write-Warning $ErrorVar.message
@@ -188,6 +208,8 @@ Function Get-TTServiceInfo {
         Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
     .PARAMETER LogErrors
         Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+    .PARAMETER WMIQuery
+    It is a switch parameter that indicates that Get-WMIObject will be used insted of Get-CIMInstance.
     .EXAMPLE
         Get-Content U:\Temp\Computers.txt | Get-TTServiceInfo -Verbose
     .EXAMPLE
@@ -206,7 +228,9 @@ Function Get-TTServiceInfo {
 
         [string]$ErrorLog = $TTErrorLogPreference,
 
-        [switch]$LogErrors
+        [switch]$LogErrors,
+
+        [switch]$WMIQuery
     )
     BEGIN {
         if ($LogErrors) {
@@ -226,7 +250,11 @@ Function Get-TTServiceInfo {
             Write-Verbose "Querying $Computer"
             Try {
                 $ErrorStatus = $True
-                $Services = Get-CimInstance -ClassName Win32_Service -ComputerName $Computer -Filter "State='Running'" -ErrorAction Stop -ErrorVariable ErrorVar
+                if($WMIQuery){
+                    $Services = Get-WmiObject -Class Win32_Service -ComputerName $Computer -Filter "State='Running'" -ErrorAction Stop -ErrorVariable ErrorVar
+                } else{
+                    $Services = Get-CimInstance -ClassName Win32_Service -ComputerName $Computer -Filter "State='Running'" -ErrorAction Stop -ErrorVariable ErrorVar
+                }
             } Catch {
                 $ErrorStatus = $False
                 Write-Warning "$Computer FAILED"
@@ -240,7 +268,11 @@ Function Get-TTServiceInfo {
             if ($ErrorStatus) {
                 foreach ($Service in $Services) {
                     $ProcessID = $Service.ProcessID
-                    $Process = Get-CimInstance -ClassName Win32_Process -ComputerName $Computer -Filter "ProcessId=$ProcessID"
+                    if($WMIQuery){
+                        $Process = Get-WmiObject -Class Win32_Process -ComputerName $Computer -Filter "ProcessId=$ProcessID"
+                    } else{
+                        $Process = Get-CimInstance -ClassName Win32_Process -ComputerName $Computer -Filter "ProcessId=$ProcessID"
+                    }
 
                     $Hash = @{
                         'ProcessName' = $Process.Name
@@ -274,6 +306,8 @@ Function Get-TTSystemInfo2 {
         Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
     .PARAMETER LogErrors
         Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+    .PARAMETER WMIQuery
+    It is a switch parameter that indicates that Get-WMIObject will be used insted of Get-CIMInstance.
     .EXAMPLE
         Get-Content U:\Temp\Computers.txt | Get-TTSystemInfo2 -Verbose
     .EXAMPLE
@@ -292,7 +326,9 @@ Function Get-TTSystemInfo2 {
 
         [string]$ErrorLog = $TTErrorLogPreference,
 
-        [switch]$LogErrors
+        [switch]$LogErrors,
+
+        [switch]$WMIQuery
     )
     BEGIN {
             if ($LogErrors) {
@@ -312,7 +348,11 @@ Function Get-TTSystemInfo2 {
             Write-Verbose "Quering $Computer"
             Try {
                 $ErrorStatus = $True
-                $Win32_OS = Get-CimInstance -ClassName Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar
+                if($WMIQuery){
+                    $Win32_OS = Get-WmiObject -Class Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar
+                } else{
+                    $Win32_OS = Get-CimInstance -ClassName Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar
+                }
             } Catch {
                 $ErrorStatus = $False
                 Write-Warning "$Computer FAILED"
@@ -325,11 +365,17 @@ Function Get-TTSystemInfo2 {
             }
 
             if ($ErrorStatus) {
-                $Win32_CS = Get-CimInstance -ClassName Win32_ComputerSystem -ComputerName $Computer
+                if($WMIQuery){
+                    $Win32_CS = Get-WmiObject -Class Win32_ComputerSystem -ComputerName $Computer
+                    $LastBootUpTime = $Win32_OS.ConvertToDateTime($Win32_OS.LastBootUpTime)
+                } else{
+                    $Win32_CS = Get-CimInstance -ClassName Win32_ComputerSystem -ComputerName $Computer
+                    $LastBootUpTime = $Win32_OS.LastBootUpTime
+                }
                 $Hash = @{
                     OSType = $Win32_OS.Caption
                     ComputerName = $Win32_OS.PSComputerName
-                    LastBootTime = $Win32_OS.LastBootUpTime
+                    LastBootTime = $LastBootUpTime
                     Manufacturer = $Win32_CS.Manufacturer
                     Model = $Win32_CS.Model
                 }
@@ -1400,6 +1446,8 @@ Function Get-TTEventLog {
     Specifies a path where the error log will be stored. By default, it is C:\Error.txt.
     .PARAMETER LogErrors
     Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+    .PARAMETER ClearLog
+    Specifies that log after writing to a file will be deleted from the machine.
     .EXAMPLE
     Get-TTEventLog -ComputerName $env:COMPUTERNAME -LogName Application -Path 'C:\Users\User\Desktop\log.txt'
     #>
@@ -1420,7 +1468,9 @@ Function Get-TTEventLog {
         [ValidateNotNullOrEmpty()]
         [string]$Path,
 
-        [string]$LogName
+        [string]$LogName,
+
+        [switch]$ClearLog
     )
     BEGIN {
         if ($LogErrors) {
@@ -1464,7 +1514,7 @@ Function Get-TTEventLog {
                         Write-Warning "Logged to $ErrorLog"
                     }
                 }
-                If($Status){
+                If($Status -and $ClearLog){
                     Try{
                         $Status = $True
                         Remove-EventLog -ComputerName $Computer -LogName $LogName -ErrorAction Stop -ErrorVariable ErrorVar
