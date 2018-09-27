@@ -1,4 +1,4 @@
-﻿$DefaultErrorLogPath = 'C:\Error.txt'
+﻿$DefaultErrorLogPath = 'C:\'
 
 Function Get-TTSystemInfo {
     <#
@@ -51,17 +51,22 @@ Function Get-TTSystemInfo {
     )
     BEGIN {
         if ($LogError) {
-            try {
-                Remove-Item -Path $ErrorLogPath -ErrorAction Stop -ErrorVariable ErrorVar
-                Write-Warning "Previos log at $ErrorLogPath was removed"
-            } catch {
-                Write-Warning $ErrorVar.message
-            }
+
+            $Time = (Get-Date)
+            $Filename += 'Log'
+            $Filename += '_'
+            $Filename += "$($Time.Day)"
+            $Filename += '_'
+            $Filename += "$($Time.Month)"
+            $Filename += '_'
+            $Filename += "$($Time.Year)"
+            $Filename += ".txt"
+
+            $ErrorLogPath = (Join-Path -Path $ErrorLogPath -ChildPath $Filename)
         }
     }
     PROCESS {
         foreach ($Computer in $ComputerName) {
-            Write-Verbose "Querying $Computer"
             try {
                 $Status = $True
                 if ($WMIQuery) {
@@ -165,17 +170,22 @@ Function Get-TTVolumeInfo {
     )
     BEGIN {
         if ($LogError) {
-            try {
-                Remove-Item -Path $ErrorLogPath -ErrorAction Stop -ErrorVariable ErrorVar
-                Write-Warning "Previos log at $ErrorLogPath was removed"
-            } catch {
-                Write-Warning $ErrorVar.message
-            }
+
+            $Time = (Get-Date)
+            $Filename += 'Log'
+            $Filename += '_'
+            $Filename += "$($Time.Day)"
+            $Filename += '_'
+            $Filename += "$($Time.Month)"
+            $Filename += '_'
+            $Filename += "$($Time.Year)"
+            $Filename += ".txt"
+
+            $ErrorLogPath = (Join-Path -Path $ErrorLogPath -ChildPath $Filename)
         }
     }
     PROCESS {
         foreach ($Computer in $ComputerName) {
-            Write-Verbose "Querying $Computer"
             try {
                 $Status = $True
                 if ($WMIQuery) {
@@ -263,17 +273,22 @@ Function Get-TTServiceInfo {
     )
     BEGIN {
         if ($LogError) {
-            try {
-                Remove-Item -Path $ErrorLogPath -ErrorAction Stop -ErrorVariable ErrorVar
-                Write-Warning "Previos log at $ErrorLogPath was removed"
-            } catch {
-                Write-Warning $ErrorVar.message
-            }
+
+            $Time = (Get-Date)
+            $Filename += 'Log'
+            $Filename += '_'
+            $Filename += "$($Time.Day)"
+            $Filename += '_'
+            $Filename += "$($Time.Month)"
+            $Filename += '_'
+            $Filename += "$($Time.Year)"
+            $Filename += ".txt"
+
+            $ErrorLogPath = (Join-Path -Path $ErrorLogPath -ChildPath $Filename)
         }
     }
     PROCESS {
         foreach ($Computer in $ComputerName) {
-            Write-Verbose "Querying $Computer"
             try {
                 $Status = $True
                 if ($WMIQuery) {
@@ -488,19 +503,24 @@ Function Get-TTSMBShare {
     )
     BEGIN {
         if ($LogError) {
-            try {
-                Remove-Item -Path $ErrorLogPath -ErrorAction Stop -ErrorVariable ErrorVar
-                Write-Warning "Previos log at $ErrorLogPath was removed"
-            } catch {
-                Write-Warning $ErrorVar.message
-            }
+
+            $Time = (Get-Date)
+            $Filename += 'Log'
+            $Filename += '_'
+            $Filename += "$($Time.Day)"
+            $Filename += '_'
+            $Filename += "$($Time.Month)"
+            $Filename += '_'
+            $Filename += "$($Time.Year)"
+            $Filename += ".txt"
+
+            $ErrorLogPath = (Join-Path -Path $ErrorLogPath -ChildPath $Filename)
         }
     }
     PROCESS {
         foreach ($Computer in $ComputerName) {
             try {
                 $Status = $True
-                Write-Verbose "Querying $Computer"
                 $Shares = Invoke-Command -ComputerName $Computer -ScriptBlock {Get-SmbShare} -ErrorAction Stop -ErrorVariable ErrorVar
             } catch {
                 $Status = $False
@@ -572,19 +592,24 @@ Function Get-TTProgram {
     )
     BEGIN {
         if ($LogError) {
-            try {
-                Remove-Item -Path $ErrorLogPath -ErrorAction Stop -ErrorVariable ErrorVar
-                Write-Warning "Previos log at $ErrorLogPath was removed"
-            } catch {
-                Write-Warning $ErrorVar.message
-            }
+
+            $Time = (Get-Date)
+            $Filename += 'Log'
+            $Filename += '_'
+            $Filename += "$($Time.Day)"
+            $Filename += '_'
+            $Filename += "$($Time.Month)"
+            $Filename += '_'
+            $Filename += "$($Time.Year)"
+            $Filename += ".txt"
+
+            $ErrorLogPath = (Join-Path -Path $ErrorLogPath -ChildPath $Filename)
         }
     }
     PROCESS {
         foreach ($Computer in $ComputerName) {
             try {
                 $Status = $True
-                Write-Verbose "Querying $Computer for OS architecture"
                 $OSArchitecture = Get-CimInstance -ClassName Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar | Select-Object -ExpandProperty OSArchitecture
             } catch {
                 $Status = $False
@@ -597,7 +622,6 @@ Function Get-TTProgram {
             if ($Status) {
                 if ($OSArchitecture.Substring(0,2) -eq 32) {
                     try {
-                        Write-Verbose "Querying $Computer x86"
                         $Programs = Invoke-Command -ComputerName $Computer -ScriptBlock {Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* -ErrorAction Stop -ErrorVariable ErrorVar | Where-Object {$PSItem.DisplayName -gt $null}}
                     } catch {
                         Write-Warning $ErrorVar.message
@@ -608,7 +632,6 @@ Function Get-TTProgram {
                     }
                 } else {
                     try {
-                        Write-Verbose "Querying $Computer x64"
                         $Programs = Invoke-Command -ComputerName $Computer -ScriptBlock {Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* -ErrorAction Stop -ErrorVariable ErrorVar | Where-Object {$PSItem.DisplayName -gt $null}}
                     } catch {
                         Write-Warning $ErrorVar.message
@@ -686,12 +709,18 @@ Function Set-TTComputerState {
     )
     BEGIN {
         if ($LogError) {
-            try {
-                Remove-Item -Path $ErrorLogPath -ErrorAction Stop -ErrorVariable ErrorVar
-                Write-Warning "Previos log at $ErrorLogPath was removed"
-            } catch {
-                Write-Warning $ErrorVar.message
-            }
+
+            $Time = (Get-Date)
+            $Filename += 'Log'
+            $Filename += '_'
+            $Filename += "$($Time.Day)"
+            $Filename += '_'
+            $Filename += "$($Time.Month)"
+            $Filename += '_'
+            $Filename += "$($Time.Year)"
+            $Filename += ".txt"
+
+            $ErrorLogPath = (Join-Path -Path $ErrorLogPath -ChildPath $Filename)
         }
 
         switch ($Action) {
@@ -705,7 +734,6 @@ Function Set-TTComputerState {
         foreach ($Computer in $ComputerName) {
             try {
                 $Status = $True
-                Write-Debug "Querying $Computer"
                 $OS = Get-WmiObject -ComputerName $Computer -Class Win32_OperatingSYstem -ErrorAction Stop -ErrorVariable ErrorVar
             } catch {
                 $Status = $False
@@ -774,19 +802,24 @@ Function Get-TTNetworkInfo {
     )
     BEGIN {
         if ($LogError) {
-            try {
-                Remove-Item -Path $ErrorLogPath -ErrorAction Stop -ErrorVariable ErrorVar
-                Write-Warning "Previos log at $ErrorLogPath was removed"
-            } catch {
-                Write-Warning $ErrorVar.message
-            }
+
+            $Time = (Get-Date)
+            $Filename += 'Log'
+            $Filename += '_'
+            $Filename += "$($Time.Day)"
+            $Filename += '_'
+            $Filename += "$($Time.Month)"
+            $Filename += '_'
+            $Filename += "$($Time.Year)"
+            $Filename += ".txt"
+
+            $ErrorLogPath = (Join-Path -Path $ErrorLogPath -ChildPath $Filename)
         }
     }
     PROCESS {
         foreach ($Computer in $ComputerName) {
             try {
                 $Status = $True
-                Write-Verbose "Querying $Computer for network active adapters"
                 if ($WMIQuery) {
                     $Adapters = Get-WmiObject -Class Win32_NetworkAdapterConfiguration -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar | Where-Object {$PSItem.IPEnabled -eq 'True'}
                 } else {
@@ -929,17 +962,22 @@ Function Get-TTInfo {
     )
     BEGIN {
         if ($LogError) {
-            try {
-                Remove-Item -Path $ErrorLogPath -ErrorAction Stop -ErrorVariable ErrorVar
-                Write-Warning "Previos log at $ErrorLogPath was removed"
-            } catch {
-                Write-Warning $ErrorVar.message
-            }
+
+            $Time = (Get-Date)
+            $Filename += 'Log'
+            $Filename += '_'
+            $Filename += "$($Time.Day)"
+            $Filename += '_'
+            $Filename += "$($Time.Month)"
+            $Filename += '_'
+            $Filename += "$($Time.Year)"
+            $Filename += ".txt"
+
+            $ErrorLogPath = (Join-Path -Path $ErrorLogPath -ChildPath $Filename)
         }
     }
     PROCESS {
         foreach ($Computer in $ComputerName) {
-            Write-Verbose "Querying $Computer"
             try {
                 $Status = $True
                 $OS = Get-CimInstance -ClassName Win32_OperatingSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar
@@ -1115,18 +1153,23 @@ Function Get-TTAdminPasswordAge {
     )
     BEGIN{
         if ($LogError) {
-            try {
-                Remove-Item -Path $ErrorLogPath -ErrorAction Stop -ErrorVariable ErrorVar
-                Write-Warning "Previos log at $ErrorLogPath was removed"
-            } catch {
-                Write-Warning $ErrorVar.message
-            }
+
+            $Time = (Get-Date)
+            $Filename += 'Log'
+            $Filename += '_'
+            $Filename += "$($Time.Day)"
+            $Filename += '_'
+            $Filename += "$($Time.Month)"
+            $Filename += '_'
+            $Filename += "$($Time.Year)"
+            $Filename += ".txt"
+
+            $ErrorLogPath = (Join-Path -Path $ErrorLogPath -ChildPath $Filename)
         }
     }
 
     PROCESS{
         foreach ($Computer in $ComputerName) {
-            Write-Verbose "Querying $Computer"
             try {
                 $Status = $True
                 $AdminAccountsNames = Invoke-Command -ComputerName $Computer -ScriptBlock {Get-LocalGroupMember -SID S-1-5-32-544 |
@@ -1227,17 +1270,22 @@ Function Get-TTEventLog {
     )
     BEGIN {
         if ($LogError) {
-            try {
-                Remove-Item -Path $ErrorLogPath -ErrorAction Stop -ErrorVariable ErrorVar
-                Write-Warning "Previos log at $ErrorLogPath was removed"
-            } catch {
-                Write-Warning $ErrorVar.message
-            }
+
+            $Time = (Get-Date)
+            $Filename += 'Log'
+            $Filename += '_'
+            $Filename += "$($Time.Day)"
+            $Filename += '_'
+            $Filename += "$($Time.Month)"
+            $Filename += '_'
+            $Filename += "$($Time.Year)"
+            $Filename += ".txt"
+
+            $ErrorLogPath = (Join-Path -Path $ErrorLogPath -ChildPath $Filename)
         }
     }
     PROCESS {
         foreach ($Computer in $ComputerName) {
-            Write-Verbose "Querying $Computer"
             try {
                 $Status = $True
                 $EventLogs = Get-EventLog -ComputerName $Computer -LogName $LogName -ErrorAction Stop -ErrorVariable ErrorVar | Format-List -Property '*'
@@ -1280,7 +1328,7 @@ Function Get-TTEventLog {
     END {}
 }
 
-Function Get-TTUptime{
+Function Get-TTUptime {
     <#
     .SYNOPSIS
 
@@ -1332,17 +1380,22 @@ Function Get-TTUptime{
     )
     BEGIN{
         if ($LogError) {
-            try {
-                Remove-Item -Path $ErrorLogPath -ErrorAction Stop -ErrorVariable ErrorVar
-                Write-Warning "Previos log at $ErrorLogPath was removed"
-            } catch {
-                Write-Warning $ErrorVar.message
-            }
+
+            $Time = (Get-Date)
+            $Filename += 'Log'
+            $Filename += '_'
+            $Filename += "$($Time.Day)"
+            $Filename += '_'
+            $Filename += "$($Time.Month)"
+            $Filename += '_'
+            $Filename += "$($Time.Year)"
+            $Filename += ".txt"
+
+            $ErrorLogPath = (Join-Path -Path $ErrorLogPath -ChildPath $Filename)
         }
     }
     PROCESS{
         foreach ($Computer in $ComputerName) {
-            Write-Verbose "Querying $Computer"
             try {
                 $Status = $True
                 if ($WMIQuery) {
