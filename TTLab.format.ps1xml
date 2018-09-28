@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <Configuration>
     <ViewDefinitions>
+    
         <View>
             <Name>TTLab.SystemInfo</Name>
             <ViewSelectedBy>
@@ -48,6 +49,7 @@
                 </ListEntries>
             </ListControl>
         </View>
+        
         <View>
             <Name>TTLab.VolumeInfo</Name>
             <ViewSelectedBy>
@@ -80,6 +82,7 @@
                  </TableRowEntries>
             </TableControl>
         </View>
+        
         <View>
             <Name>TTLab.ServiceInfo</Name>
             <ViewSelectedBy>
@@ -116,6 +119,7 @@
                  </TableRowEntries>
             </TableControl>
         </View>
+        
         <View>
             <Name>TTLab.ServiceInfo</Name>
             <ViewSelectedBy>
@@ -154,6 +158,7 @@
                 </ListEntries>
             </ListControl>
         </View>
+        
         <View>
             <Name>TTLab.Program</Name>
             <ViewSelectedBy>
@@ -186,6 +191,7 @@
                  </TableRowEntries>
             </TableControl>
         </View>
+        
         <View>
             <Name>TTLab.NetworkAdapter</Name>
             <ViewSelectedBy>
@@ -215,6 +221,7 @@
                 </ListEntries>
             </ListControl>
         </View>
+        
         <View>
             <Name>TTLab.Uptime</Name>
             <ViewSelectedBy>
@@ -243,6 +250,7 @@
                  </TableRowEntries>
             </TableControl>
         </View>
+        
         <View>
             <Name>TTLab.RAM</Name>
             <ViewSelectedBy>
@@ -279,6 +287,7 @@
                  </TableRowEntries>
             </TableControl>
         </View>
+        
         <View>
             <Name>TTLab.CPU</Name>
             <ViewSelectedBy>
@@ -318,6 +327,56 @@
                     </TableRowEntry>
                  </TableRowEntries>
             </TableControl>
+        
         </View>
+
+        <View>
+            <Name>TTLab.HDD</Name>
+            <ViewSelectedBy>
+                <TypeName>TTLab.HDD</TypeName>
+            </ViewSelectedBy>
+            <TableControl>
+                <TableHeaders>
+                    <TableColumnHeader/>
+                    <TableColumnHeader/>
+                    <TableColumnHeader/>
+                    <TableColumnHeader/>
+                    <TableColumnHeader/>
+                    <TableColumnHeader/>
+                </TableHeaders>
+                <TableRowEntries>
+                    <TableRowEntry>
+                        <TableColumnItems>
+
+                            <TableColumnItem>
+                                <PropertyName>Computer Name</PropertyName>
+                            </TableColumnItem>
+
+                            <TableColumnItem>
+                                <PropertyName>Caption</PropertyName>
+                            </TableColumnItem>
+
+                            <TableColumnItem>
+                                <PropertyName>Serial Number</PropertyName>
+                            </TableColumnItem> 
+
+                            <TableColumnItem>
+                                <PropertyName>Interface Type</PropertyName>
+                            </TableColumnItem>
+
+                            <TableColumnItem>
+                                <PropertyName>Size (GB)</PropertyName>
+                            </TableColumnItem> 
+
+                            <TableColumnItem>
+                                <PropertyName>Status</PropertyName>
+                            </TableColumnItem>
+
+                        </TableColumnItems>
+                    </TableRowEntry>
+                 </TableRowEntries>
+            </TableControl>
+        </View>
+
     </ViewDefinitions>
 </Configuration>

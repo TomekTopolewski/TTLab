@@ -1627,6 +1627,102 @@ Function Get-TTCPU {
     END {}
 }
 
+Function Get-TTHDD {
+    <#
+    .SYNOPSIS
+
+    Gets information about installed HDDs.
+
+    .DESCRIPTION
+
+    The Get-TTHDD cmdlet gets information about installed HDDs or a local or remote machine.
+
+    .PARAMETER ComputerName
+
+    Run cmdlet on the specified computers.
+
+    .PARAMETER ErrorLogPath
+
+    Specifies the path where the error log will be writed. By default, it is C:\Error.txt.
+
+    .PARAMETER LogError
+
+    Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+
+    .PARAMETER WMIQuery
+
+    The switch parameter that indicates that Get-WMIObject will be used insted of Get-CIMInstance.
+    #>
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory = $True,
+                    ValueFromPipeline = $True,
+                    ValueFromPipelineByPropertyName = $True)]
+        [ValidateNotNullOrEmpty()]
+        [string[]] $ComputerName,
+
+        [string] $ErrorLogPath = $DefaultErrorLogPath,
+
+        [switch] $LogError,
+
+        [switch] $WMIQuery
+    )
+    BEGIN {
+        if ($LogError) {
+
+            $Time = (Get-Date)
+            $Filename += 'Log'
+            $Filename += '_'
+            $Filename += "$($Time.Day)"
+            $Filename += '_'
+            $Filename += "$($Time.Month)"
+            $Filename += '_'
+            $Filename += "$($Time.Year)"
+            $Filename += ".txt"
+
+            $ErrorLogPath = (Join-Path -Path $ErrorLogPath -ChildPath $Filename)
+        }
+    }
+
+    PROCESS {
+        foreach ($Computer in $ComputerName) {
+            try {
+                $Status = $True
+                if ($WMIQuery) {
+                    $HDDs = Get-WMIObject -Class Win32_DiskDrive -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar
+                } else {
+                    $HDDs = Get-CimInstance -ClassName Win32_DiskDrive -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar
+                }
+            } catch {
+                $Status = $False
+                Write-Warning $ErrorVar.message
+                if ($LogError) {
+                    $Computer | Out-File -FilePath $ErrorLogPath -Append
+                    $ErrorVar.message | Out-File -FilePath $ErrorLogPath -Append
+                }
+            }
+
+            if ($Status) {
+                foreach ($HDD in $HDDs) {
+                    $Hash = @{
+                        'Computer Name' = $HDD.PSComputerName;
+                        'Status' = $HDD.Status;
+                        'Interface Type' = $HDD.InterfaceType;
+                        'Size (GB)' = $HDD.Size / 1gb -as [int];
+                        'Caption' = $HDD.Caption;
+                        'Serial Number' = $HDD.SerialNumber;
+                    }
+
+                    $Object = New-Object -TypeName psobject -Property $Hash
+                    $Object.PSObject.TypeNames.Insert(0,'TTLab.HDD')
+                    Write-Output $Object
+                }
+            }
+        }
+    }
+    
+    END {}
+}
 #Variables
 Export-ModuleMember -Variable ErrorLogDefaultPath
 
@@ -1644,6 +1740,7 @@ Export-ModuleMember -Function Get-TTEventLog
 Export-ModuleMember -Function Get-TTUptime
 Export-ModuleMember -Function Get-TTRAM
 Export-ModuleMember -Function Get-TTCPU
+Export-ModuleMember -Function Get-TTHDD
 
 #Database Functions
 #Export-ModuleMember -Function Get-TTDBData
