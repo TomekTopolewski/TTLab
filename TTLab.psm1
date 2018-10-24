@@ -8,8 +8,7 @@ Function Get-TTSystemInfo {
 
     .DESCRIPTION
 
-    The Get-TTSystemInfo cmdlet uses WMI classes (Win32_OperatingSystem and Win32_ComputerSystem) to gather information about hardware and software 
-    from a local or remote computers.
+    The Get-TTSystemInfo cmdlet uses WMI classes to gather information about hardware and software from local or remote computers.
     
     .PARAMETER ComputerName
 
@@ -17,7 +16,7 @@ Function Get-TTSystemInfo {
 
     .PARAMETER ErrorLogPath
 
-    Specifies the path where the error log will be writed. By default, it is C:\Error.txt.
+    Specifies the path where the error log will be written. By default, it is C:\Error.txt.
 
     .PARAMETER LogError
 
@@ -25,7 +24,7 @@ Function Get-TTSystemInfo {
 
     .PARAMETER WMIQuery
 
-    The switch parameter that indicates that Get-WMIObject will be used insted of Get-CIMInstance.
+    Indicates that Get-WMIObject will be used instead of Get-CIMInstance.
 
     .EXAMPLE
 
@@ -51,7 +50,6 @@ Function Get-TTSystemInfo {
     )
     BEGIN {
         if ($LogError) {
-
             $Time = (Get-Date)
             $Filename += 'Log'
             $Filename += '_'
@@ -124,11 +122,11 @@ Function Get-TTVolumeInfo {
     <#
     .SYNOPSIS
 
-    Gets information about drives from a local or remote computers.
+    Gets information about drives from local or remote computers.
 
     .DESCRIPTION
 
-    The Get-TTVolumeInfo cmdlet uses the Win32_Volume class to gather information about drives from a local or remote computers.
+    The Get-TTVolumeInfo cmdlet uses the Win32_Volume class to gather information about drives from local or remote computers.
 
     .PARAMETER ComputerName
 
@@ -136,7 +134,7 @@ Function Get-TTVolumeInfo {
 
     .PARAMETER ErrorLogPath
 
-    Specifies the path where the error log will be writed. By default, it is C:\Error.txt.
+    Specifies the path where the error log will be written. By default, it is C:\Error.txt.
 
     .PARAMETER LogError
 
@@ -144,7 +142,7 @@ Function Get-TTVolumeInfo {
 
     .PARAMETER WMIQuery
 
-    The switch parameter that indicates that Get-WMIObject will be used insted of Get-CIMInstance.
+    Indicates that Get-WMIObject will be used instead of Get-CIMInstance.
 
     .EXAMPLE
 
@@ -170,7 +168,6 @@ Function Get-TTVolumeInfo {
     )
     BEGIN {
         if ($LogError) {
-
             $Time = (Get-Date)
             $Filename += 'Log'
             $Filename += '_'
@@ -203,7 +200,6 @@ Function Get-TTVolumeInfo {
             }
             if ($Status) {
                 foreach ($Volume in $Volumes) {
-
                     $Size="{0:N2}" -f ($Volume.capacity/1GB)
                     $Freespace="{0:N2}" -f ($Volume.Freespace/1GB)
 
@@ -213,6 +209,7 @@ Function Get-TTVolumeInfo {
                         'Drive' = $Volume.Name;
                         'Size(GB)' = $Size;
                     }
+
                     $Object = New-Object -TypeName psobject -Property $Hash
                     $Object.PSObject.TypeNames.Insert(0,'TTLab.VolumeInfo')
                     Write-Output $Object
@@ -227,11 +224,11 @@ Function Get-TTServiceInfo {
     <#
     .SYNOPSIS
 
-    Gets information about services from a local or remote computers.
+    Gets information about services from local or remote computers.
 
     .DESCRIPTION
 
-    The Get-TTServiceInfo cmdlet uses WMI classes (Win32_Service and Win32_Process) to gather information about services from a local or remote computers.
+    The Get-TTServiceInfo cmdlet uses WMI classes to gather information about services from local or remote computers.
 
     .PARAMETER ComputerName
 
@@ -239,7 +236,7 @@ Function Get-TTServiceInfo {
 
     .PARAMETER ErrorLogPath
 
-    Specifies the path where the error log will be writed. By default, it is C:\Error.txt.
+    Specifies the path where the error log will be written. By default, it is C:\Error.txt.
 
     .PARAMETER LogError
 
@@ -247,11 +244,11 @@ Function Get-TTServiceInfo {
 
     .PARAMETER WMIQuery
 
-    The switch parameter that indicates that Get-WMIObject will be used insted of Get-CIMInstance.
+    Indicates that Get-WMIObject will be used instead of Get-CIMInstance.
 
     .EXAMPLE
 
-    Get-Content U:\Temp\Computers.txt | Get-TTServiceInfo -Verbose
+    Get-Content U:\Temp\Computers.txt | Get-TTServiceInfo
 
     .EXAMPLE
 
@@ -273,7 +270,6 @@ Function Get-TTServiceInfo {
     )
     BEGIN {
         if ($LogError) {
-
             $Time = (Get-Date)
             $Filename += 'Log'
             $Filename += '_'
@@ -332,142 +328,15 @@ Function Get-TTServiceInfo {
     END {}
 }
 
-Function Get-TTDBData {
-    <#
-    .SYNOPSIS
-
-        Gets data from a database.
-
-    .DESCRIPTION
-
-        The Get-TTDBData cmdlet is used to queries information from a database.
-        It is prepared to work with MS databases and others which supports OLEDB connection.
-
-    .PARAMETER ConnectionString
-
-        Specifies the connection string which should contain information how to connect to a database.
-
-    .PARAMETER Query
-
-        Specifies the actual SQL language query that will run.
-
-    .PARAMETER IsSQLServer
-
-        Indicates that we will query MS-SQL Server database.
-
-    .EXAMPLE
-
-        $ConnectionString = "server=localhost\SQLEXPRESS;database=inventory;trusted_connection=$True"
-
-        $Query = "SELECT Something FROM Somewhere WHERE Something = Something"
-
-        Get-TTDBData -ConnectionString $ConnectionString -Query $Query -IsSQLServer
-    #>
-    [CmdletBinding()]
-    Param (
-        [string] $ConnectionString,
-
-        [string] $Query,
-
-        [switch] $IsSQLServer
-    )
-
-    if ($IsSQLServer) {
-        Write-Verbose "Attempting to create a SqlConnection"
-        $Connection = New-Object -TypeName System.Data.SqlClient.SqlConnection
-    } else {
-        Write-Verbose "Attempting to create a OleDbConnection"
-        $Connection = New-Object -TypeName System.Data.OleDb.OleDbConnection
-    }
-
-    $Connection.ConnectionString = $ConnectionString
-    $Command = $Connection.CreateCommand()
-    $Command.CommandText = $Query
-
-    if ($IsSQLServer) {
-        Write-Verbose "Creating SqlDataAdapter"
-        $Adapter = New-Object -TypeName System.Data.SqlClient.SqlDataAdapter $Command
-    } else {
-        Write-Verbose "Creating OleDbDataAdapter"
-        $Adapter = New-Object -TypeName System.Data.OleDb.OleDbDataAdapter $Command
-    }
-
-    $DataSet = New-Object -TypeName System.Data.DataSet
-    $Adapter.Fill($DataSet)
-    $DataSet.Tables[0]
-    $Connection.Close()
-}
-
-Function Invoke-TTDBData {
-    <#
-    .SYNOPSIS
-
-        Write data to a database.
-
-    .DESCRIPTION
-
-        The Invoke-TTDBData cmdlet is used to write data to a database.
-        It is prepared to work with MS databases and others which supports OLEDB connection.
-
-    .PARAMETER ConnectionString
-
-        Specifies the connection string which should contain information how to connect to a database.
-
-    .PARAMETER Query
-
-        Specifies the actual SQL language query that will run.
-
-    .PARAMETER IsSQLServer
-
-        Indicates that we will query MS-SQL Server database.
-
-    .EXAMPLE
-
-        $ConnectionString = "server=localhost\SQLEXPRESS;database=inventory;trusted_connection=$True"
-
-        $Query = "UPDATE Database SET Columns = Something, Columns = Something"
-
-        Get-TTDBQuery -ConnectionString $ConnectionString -Query $Query
-    #>
-    [CmdletBinding(SupportsShouldProcess = $True, ConfirmImpact = 'Low')]
-    Param (
-        [string] $ConnectionString,
-
-        [string] $Query,
-
-        [switch] $IsSQLServer
-    )
-
-    if ($IsSQLServer) {
-        Write-Verbose "Attempting to create a SqlConnection"
-        $Connection = New-Object -TypeName System.Data.SqlClient.SqlConnection
-    } else {
-        Write-Verbose "Attempting to create a OleDbConnection"
-        $Connection = New-Object -TypeName System.Data.OleDb.OleDbConnection
-    }
-
-    $Connection.ConnectionString = $ConnectionString
-    $Command = $Connection.CreateCommand()
-    $Command.CommandText = $Query
-
-    if ($PSCmdlet.ShouldProcess($Query)) {
-        Write-Verbose "Executing $Query"
-        $Connection.Open()
-        $Command.ExecuteNonQuery() | Out-Null
-        $Connection.Close()
-        Write-Verbose "Connection closed"
-    }
-}
-
 Function Get-TTSMBShare {
     <#
     .SYNOPSIS
 
-    Gets a list of SMB shares on a local or remote computers.
+    Gets a list of SMB shares on local or remote computers.
 
     .DESCRIPTION
 
-    The Get-TTSMBShare cmdlet gets a list of SMB shares on a local or remote computers.
+    The Get-TTSMBShare cmdlet gets a list of SMB shares on local or remote computers.
 
     .PARAMETER ComputerName
 
@@ -475,7 +344,7 @@ Function Get-TTSMBShare {
 
     .PARAMETER ErrorLogPath
 
-    Specifies the path where the error log will be writed. By default, it is C:\Error.txt.
+    Specifies the path where the error log will be written. By default, it is C:\Error.txt.
 
     .PARAMETER LogError
 
@@ -503,7 +372,6 @@ Function Get-TTSMBShare {
     )
     BEGIN {
         if ($LogError) {
-
             $Time = (Get-Date)
             $Filename += 'Log'
             $Filename += '_'
@@ -552,11 +420,11 @@ Function Get-TTProgram {
     <#
     .SYNOPSIS
 
-    Gets a list of installed software on a local or remote computers.
+    Gets a list of installed software on local or remote computers.
 
     .DESCRIPTION
 
-    The Get-TTProgram cmdlet gets a list of installed software on a local or remote computers.
+    The Get-TTProgram cmdlet gets a list of installed software on local or remote computers.
 
     Before it starts to look for installed software it queries Win32_OperatingSystem class to check whether it is 32 or 64-bits architecture.
     Next, it retrieves a list from HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* for 32-bits systems or from
@@ -568,7 +436,7 @@ Function Get-TTProgram {
 
     .PARAMETER ErrorLogPath
 
-    Specifies the path where the error log will be writed. By default, it is C:\Error.txt.
+    Specifies the path where the error log will be written. By default, it is C:\Error.txt.
 
     .PARAMETER LogError
 
@@ -592,7 +460,6 @@ Function Get-TTProgram {
     )
     BEGIN {
         if ($LogError) {
-
             $Time = (Get-Date)
             $Filename += 'Log'
             $Filename += '_'
@@ -662,11 +529,11 @@ Function Set-TTComputerState {
     <#
     .SYNOPSIS
 
-    Performs the specified (LogOff, Restart, ShutDown, PowerOff) action on a local or remote computers.
+    Performs the specified (LogOff, Restart, ShutDown, PowerOff) action on local or remote computers.
 
     .DESCRIPTION
 
-    The Set-TTComputerState cmdlet performs the specified action (LogOff, Restart, ShutDown, PowerOff) on a local or remote computers, which is set via -Action parameter.
+    The Set-TTComputerState cmdlet performs the specified action (LogOff, Restart, ShutDown, PowerOff) on local or remote computers, which is set via -Action parameter.
 
     .PARAMETER ComputerName
 
@@ -674,7 +541,7 @@ Function Set-TTComputerState {
 
     .PARAMETER ErrorLogPath
 
-    Specifies a path where the error log will be writed. By default, it is C:\Error.txt.
+    Specifies a path where the error log will be written. By default, it is C:\Error.txt.
 
     .PARAMETER LogError
 
@@ -682,7 +549,7 @@ Function Set-TTComputerState {
 
     .PARAMETER Action
 
-    Accepts only one of the listed values: LogOff, Restart, ShutDown, PowerOff.
+    It accepts only one of the listed values: LogOff, Restart, ShutDown, PowerOff.
 
     .PARAMETER Force
 
@@ -709,7 +576,6 @@ Function Set-TTComputerState {
     )
     BEGIN {
         if ($LogError) {
-
             $Time = (Get-Date)
             $Filename += 'Log'
             $Filename += '_'
@@ -767,7 +633,7 @@ Function Get-TTNetworkInfo {
 
     .DESCRIPTION
 
-    The Set-TTNetworkInfo cmdlet gets basic information such as Name, IP, MAC address from an active network adapter, from a local or remote computers.
+    The Set-TTNetworkInfo cmdlet gets basic information such as Name, IP, MAC address from an active network adapter, from local or remote computers.
 
     .PARAMETER ComputerName
 
@@ -775,7 +641,7 @@ Function Get-TTNetworkInfo {
 
     .PARAMETER ErrorLogPath
 
-    Specifies the path where the error log will be writed. By default, it is C:\Error.txt.
+    Specifies the path where the error log will be written. By default, it is C:\Error.txt.
 
     .PARAMETER LogError
 
@@ -783,7 +649,7 @@ Function Get-TTNetworkInfo {
 
     .PARAMETER WMIQuery
 
-    The switch parameter that indicates that Get-WMIObject will be used insted of Get-CIMInstance.
+    Indicates that Get-WMIObject will be used instead of Get-CIMInstance.
 
     #>
     [CmdletBinding()]
@@ -802,7 +668,6 @@ Function Get-TTNetworkInfo {
     )
     BEGIN {
         if ($LogError) {
-
             $Time = (Get-Date)
             $Filename += 'Log'
             $Filename += '_'
@@ -856,11 +721,11 @@ Function Get-TTInfo {
     <#
     .SYNOPSIS
 
-    Gets a huge amount of information about a local or remote computers.
+    Gets a huge amount of information about local or remote computers.
 
     .DESCRIPTION
 
-    The Get-TTInfo cmdlet gets a huge amount of information about a local or remote computers.
+    The Get-TTInfo cmdlet gets a huge amount of information about local or remote computers.
         'ComputerName' -    Hostname
         'OSVersion' -       Operating system version
         'SPVersion' -       Service pack version
@@ -892,7 +757,7 @@ Function Get-TTInfo {
 
     .PARAMETER ErrorLogPath
 
-    Specifies the path where the error log will be writed. By default, it is C:\Error.txt.
+    Specifies the path where the error log will be written. By default, it is C:\Error.txt.
 
     .PARAMETER LogError
 
@@ -962,7 +827,6 @@ Function Get-TTInfo {
     )
     BEGIN {
         if ($LogError) {
-
             $Time = (Get-Date)
             $Filename += 'Log'
             $Filename += '_'
@@ -1119,8 +983,9 @@ Function Get-TTAdminPasswordAge {
 
     .DESCRIPTION
 
-    The Get-TTAdminPasswordAge cmdlet gets information about active accounts on a local or remote machine. First, it gets names of members of Administrator group, then it use
-    this names to call for account object. Finally, using object's properties it calculates password age.
+    The Get-TTAdminPasswordAge cmdlet gets information about active accounts on a local or remote machine. 
+    First, it gets the names of members of the Administrator group, then it uses this names to call for an account object. 
+    Finally, using object's properties it calculates password age.
 
     .PARAMETER ComputerName
 
@@ -1128,7 +993,7 @@ Function Get-TTAdminPasswordAge {
 
     .PARAMETER ErrorLogPath
 
-    Specifies the path where the error log will be writed. By default, it is C:\Error.txt.
+    Specifies the path where the error log will be written. By default, it is C:\Error.txt.
 
     .PARAMETER LogError
 
@@ -1153,7 +1018,6 @@ Function Get-TTAdminPasswordAge {
     )
     BEGIN{
         if ($LogError) {
-
             $Time = (Get-Date)
             $Filename += 'Log'
             $Filename += '_'
@@ -1226,7 +1090,7 @@ Function Get-TTEventLog {
 
     .PARAMETER Path
 
-    Specifies the path where the event log will be writed. By default, it is C:\EventLog.txt.
+    Specifies the path where the event log will be written. By default, it is C:\EventLog.txt.
 
     .PARAMETER LogName
 
@@ -1234,7 +1098,7 @@ Function Get-TTEventLog {
 
     .PARAMETER ErrorLogPath
 
-    Specifies a path where the error log will be writed. By default, it is C:\Error.txt.
+    Specifies a path where the error log will be written. By default, it is C:\Error.txt.
 
     .PARAMETER LogError
 
@@ -1270,7 +1134,6 @@ Function Get-TTEventLog {
     )
     BEGIN {
         if ($LogError) {
-
             $Time = (Get-Date)
             $Filename += 'Log'
             $Filename += '_'
@@ -1332,7 +1195,7 @@ Function Get-TTUptime {
     <#
     .SYNOPSIS
 
-    Gets information about last boot up time and uptime from a local or remote machine.
+    Gets information about the last boot up time and uptime from a local or remote machine.
 
     .DESCRIPTION
 
@@ -1344,7 +1207,7 @@ Function Get-TTUptime {
 
     .PARAMETER ErrorLogPath
 
-    Specifies the path where the error log will be writed. By default, it is C:\Error.txt.
+    Specifies the path where the error log will be written. By default, it is C:\Error.txt.
 
     .PARAMETER LogError
 
@@ -1352,7 +1215,7 @@ Function Get-TTUptime {
 
     .PARAMETER WMIQuery
 
-    The switch parameter that indicates that Get-WMIObject will be used insted of Get-CIMInstance.
+    The switch parameter that indicates that Get-WMIObject will be used instead of Get-CIMInstance.
 
     .EXAMPLE
 
@@ -1380,7 +1243,6 @@ Function Get-TTUptime {
     )
     BEGIN{
         if ($LogError) {
-
             $Time = (Get-Date)
             $Filename += 'Log'
             $Filename += '_'
@@ -1453,7 +1315,7 @@ Function Get-TTRAM {
 
     .PARAMETER ErrorLogPath
 
-    Specifies the path where the error log will be writed. By default, it is C:\Error.txt.
+    Specifies the path where the error log will be written. By default, it is C:\Error.txt.
 
     .PARAMETER LogError
 
@@ -1461,7 +1323,7 @@ Function Get-TTRAM {
 
     .PARAMETER WMIQuery
 
-    The switch parameter that indicates that Get-WMIObject will be used insted of Get-CIMInstance.
+    Indicates that Get-WMIObject will be used instead of Get-CIMInstance.
     #>
     [CmdletBinding()]
     Param (
@@ -1479,7 +1341,6 @@ Function Get-TTRAM {
     )
     BEGIN {
         if ($LogError) {
-
             $Time = (Get-Date)
             $Filename += 'Log'
             $Filename += '_'
@@ -1547,7 +1408,7 @@ Function Get-TTCPU {
 
     .PARAMETER ErrorLogPath
 
-    Specifies the path where the error log will be writed. By default, it is C:\Error.txt.
+    Specifies the path where the error log will be written. By default, it is C:\Error.txt.
 
     .PARAMETER LogError
 
@@ -1555,7 +1416,7 @@ Function Get-TTCPU {
 
     .PARAMETER WMIQuery
 
-    The switch parameter that indicates that Get-WMIObject will be used insted of Get-CIMInstance.
+    Indicates that Get-WMIObject will be used instead of Get-CIMInstance.
     #>
     [CmdletBinding()]
     Param (
@@ -1573,7 +1434,6 @@ Function Get-TTCPU {
     )
     BEGIN {
         if ($LogError) {
-
             $Time = (Get-Date)
             $Filename += 'Log'
             $Filename += '_'
@@ -1643,7 +1503,7 @@ Function Get-TTHDD {
 
     .PARAMETER ErrorLogPath
 
-    Specifies the path where the error log will be writed. By default, it is C:\Error.txt.
+    Specifies the path where the error log will be written. By default, it is C:\Error.txt.
 
     .PARAMETER LogError
 
@@ -1651,7 +1511,7 @@ Function Get-TTHDD {
 
     .PARAMETER WMIQuery
 
-    The switch parameter that indicates that Get-WMIObject will be used insted of Get-CIMInstance.
+    Indicates that Get-WMIObject will be used instead of Get-CIMInstance.
     #>
     [CmdletBinding()]
     Param (
@@ -1669,7 +1529,6 @@ Function Get-TTHDD {
     )
     BEGIN {
         if ($LogError) {
-
             $Time = (Get-Date)
             $Filename += 'Log'
             $Filename += '_'
@@ -1723,6 +1582,96 @@ Function Get-TTHDD {
     
     END {}
 }
+
+Function Get-TTOu {
+    <#
+    .SYNOPSIS
+
+    Gets information about the location of an Active Directory object, for example, a user or a computer.
+
+    .DESCRIPTION
+
+    The Get-TTOu cmdlet gets information about the location of an Active Directory object, for example, a user or a computer.
+
+    .PARAMETER AccountName
+
+    A name of an Active Directory object.
+
+    .PARAMETER ErrorLogPath
+
+    Specifies the path where the error log will be written. By default, it is C:\Error.txt.
+
+    .PARAMETER LogError
+
+    Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+
+    .PARAMETER ObjectType
+
+    Specifies the type of an Active Directory object, whether it is a computer or a user.
+    #>
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory = $True,
+                    ValueFromPipeline = $True,
+                    ValueFromPipelineByPropertyName = $True)]
+        [ValidateNotNullOrEmpty()]
+        [string[]] $AccountName,
+
+        [string] $ErrorLogPath = $DefaultErrorLogPath,
+
+        [switch] $LogError,
+
+        [Parameter(Mandatory=$True)]
+        [ValidateSet("User", "Computer")]
+        [ValidateNotNullOrEmpty()]
+        [string] $ObjectType
+    )
+
+    BEGIN {
+        if ($LogError) {
+            $Time = (Get-Date)
+            $Filename += 'Log'
+            $Filename += '_'
+            $Filename += "$($Time.Day)"
+            $Filename += '_'
+            $Filename += "$($Time.Month)"
+            $Filename += '_'
+            $Filename += "$($Time.Year)"
+            $Filename += ".txt"
+
+            $ErrorLogPath = (Join-Path -Path $ErrorLogPath -ChildPath $Filename)
+        }
+    }
+
+    PROCESS {
+        foreach ($Name in $AccountName) {
+            try {
+                $Status = $True
+                switch ($ObjectType) {
+                    "User" {$Account = Get-ADUser -Identity $Name -ErrorAction Stop -ErrorVariable ErrorVar}
+                    "Computer" {$Account = Get-ADComputer -Identity $Name -ErrorAction Stop -ErrorVariable ErrorVar}
+                }
+            } catch {
+                $Status = $False
+                Write-Warning $ErrorVar.message
+                if ($LogError) {
+                    $Computer | Out-File -FilePath $ErrorLogPath -Append
+                    $ErrorVar.message | Out-File -FilePath $ErrorLogPath -Append
+                }
+            }
+            if ($Status) {
+                $DistinguishedName = $Account | Select-Object -ExpandProperty DistinguishedName
+                $Array = $DistinguishedName.Split(',')
+                for ($Size = $Array.Length; $Size -ge 0; $Size--) {
+                    if($Array[$Size] -like "OU=*") {
+                        Write-Output $Array[$Size]
+                    }
+                }
+                Write-Output ""
+            }
+        }
+    }
+}
 #Variables
 Export-ModuleMember -Variable ErrorLogDefaultPath
 
@@ -1741,7 +1690,4 @@ Export-ModuleMember -Function Get-TTUptime
 Export-ModuleMember -Function Get-TTRAM
 Export-ModuleMember -Function Get-TTCPU
 Export-ModuleMember -Function Get-TTHDD
-
-#Database Functions
-#Export-ModuleMember -Function Get-TTDBData
-#Export-ModuleMember -Function Invoke-TTDBData
+Export-ModuleMember -Function Get-TTOu
