@@ -1673,7 +1673,7 @@ Function Get-TTOu {
     }
 }
 #Variables
-Export-ModuleMember -Variable ErrorLogDefaultPath
+Export-ModuleMember -Variable $DefaultErrorLogPath
 
 #General Functions
 Export-ModuleMember -Function Get-TTSystemInfo
