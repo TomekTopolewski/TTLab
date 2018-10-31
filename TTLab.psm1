@@ -1307,7 +1307,7 @@ Function Get-TTRAM {
 
     .DESCRIPTION
 
-    The Get-TTRAM cmdlet gets information about installed RAM or a local or remote machine.
+    The Get-TTRAM cmdlet gets information about installed RAM on a local or remote machine.
 
     .PARAMETER ComputerName
 
@@ -1400,7 +1400,7 @@ Function Get-TTCPU {
 
     .DESCRIPTION
 
-    The Get-TTCPU cmdlet gets information about installed CPUs or a local or remote machine.
+    The Get-TTCPU cmdlet gets information about installed CPUs on a local or remote machine.
 
     .PARAMETER ComputerName
 
@@ -1495,7 +1495,7 @@ Function Get-TTHDD {
 
     .DESCRIPTION
 
-    The Get-TTHDD cmdlet gets information about installed HDDs or a local or remote machine.
+    The Get-TTHDD cmdlet gets information about installed HDDs on a local or remote machine.
 
     .PARAMETER ComputerName
 
@@ -1672,6 +1672,96 @@ Function Get-TTOu {
         }
     }
 }
+
+Function Get-TTLoggedUser {
+    <#
+    .SYNOPSIS
+
+    Gets information about the currently logged user.
+
+    .DESCRIPTION
+
+    The Get-TTLoggedUser cmdlet gets information about the currently logged user on a local or remote machine.
+    
+    .PARAMETER ComputerName
+
+    Run cmdlet on the specified computers.
+
+    .PARAMETER ErrorLogPath
+
+    Specifies the path where the error log will be written. By default, it is C:\Error.txt.
+
+    .PARAMETER LogError
+
+    Indicates that this cmdlet will log errors. A path to the error log is specified by the -ErrorLog parameter.
+
+    .PARAMETER WMIQuery
+
+    Indicates that Get-WMIObject will be used instead of Get-CIMInstance.
+    #>
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory = $True,
+                    ValueFromPipeline = $True,
+                    ValueFromPipelineByPropertyName = $True)]
+        [ValidateNotNullOrEmpty()]
+        [string[]] $ComputerName,
+
+        [string] $ErrorLogPath = $DefaultErrorLogPath,
+
+        [switch] $LogError,
+
+        [switch] $WMIQuery
+    )
+
+    BEGIN {
+        if ($LogError) {
+            $Time = (Get-Date)
+            $Filename += 'Log'
+            $Filename += '_'
+            $Filename += "$($Time.Day)"
+            $Filename += '_'
+            $Filename += "$($Time.Month)"
+            $Filename += '_'
+            $Filename += "$($Time.Year)"
+            $Filename += ".txt"
+            $ErrorLogPath = (Join-Path -Path $ErrorLogPath -ChildPath $Filename)
+        }
+    }
+
+    PROCESS {
+        foreach ($Computer in $ComputerName) {
+            try {
+                $Status = $True
+                if ($WMIQuery) {
+                    $CS = Get-WMIObject -Class Win32_ComputerSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar
+                } else {
+                    $CS = Get-CimInstance -ClassName Win32_ComputerSystem -ComputerName $Computer -ErrorAction Stop -ErrorVariable ErrorVar
+                }
+            } catch {
+                $Status = $False
+                Write-Warning $ErrorVar.message
+                if ($LogError) {
+                    $Computer | Out-File -FilePath $ErrorLogPath -Append
+                    $ErrorVar.message | Out-File -FilePath $ErrorLogPath -Append
+                }
+            }
+
+            if ($Status) {
+                $Hash = @{
+                'Manufacturer' = $CS.Manufacturer;
+                'Name' = $CS.Name;
+                'Model' = $CS.Model;
+                'LoggedUser' = $CS.UserName;
+                }
+
+                $Object = New-Object -TypeName psobject -Property $Hash
+                $Object.PSObject.TypeNames.Insert(0,'TTLab.LoggedUser')
+                Write-Output $Object
+            }
+        }
+    }
+}
 #Variables
 Export-ModuleMember -Variable $DefaultErrorLogPath
 
@@ -1691,3 +1781,4 @@ Export-ModuleMember -Function Get-TTRAM
 Export-ModuleMember -Function Get-TTCPU
 Export-ModuleMember -Function Get-TTHDD
 Export-ModuleMember -Function Get-TTOu
+Export-ModuleMember -Function Get-TTLoggedUser
